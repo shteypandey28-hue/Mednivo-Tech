@@ -9,7 +9,15 @@ interface Patient {
 
 interface Medicine {
     id: string;
+    sourceId?: string;
+    source?: string;
     name: string;
+    brandName?: string;
+    genericName?: string;
+    composition?: string;
+    strength?: string;
+    dosageForm?: string;
+    route?: string;
     dosage: string;
     frequency: string;
     duration: string;

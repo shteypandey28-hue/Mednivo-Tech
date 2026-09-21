@@ -8,8 +8,12 @@ export class UsersService {
     constructor(private readonly prisma: PrismaService) { }
 
     create(createUserDto: CreateUserDto) {
+        const { password, ...rest } = createUserDto;
         return this.prisma.user.create({
-            data: createUserDto,
+            data: {
+                ...rest,
+                passwordHash: password,
+            },
         });
     }
 
@@ -24,9 +28,12 @@ export class UsersService {
     }
 
     update(id: string, updateUserDto: UpdateUserDto) {
+        const { password, ...rest } = updateUserDto as any;
+        const data: any = { ...rest };
+        if (password) data.passwordHash = password;
         return this.prisma.user.update({
             where: { id },
-            data: updateUserDto,
+            data,
         });
     }
 

@@ -1,137 +1,125 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { authAPI } from '@/lib/api';
 
-interface User {
-    id: string;
-    name: string;
-    email: string;
-    avatar?: string;
-    pin?: string;
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: 'ADMIN' | 'DOCTOR' | 'RECEPTIONIST' | 'PATIENT';
+  phone?: string;
+  avatar?: string;
+  clinicId?: string;
+  specialty?: string;
+  qualification?: string;
+  registrationNumber?: string;
+  consultationFee?: number;
+  signature?: string;
+  clinic?: { id: string; name: string; logo?: string };
+  pin?: string;
 }
 
 interface AuthState {
-    user: User | null;
-    savedUser: User | null; // For "Locked" state
-    isAuthenticated: boolean;
-    isLocked: boolean;
-    login: (email: string, password: string) => Promise<void>;
-    googleLogin: () => Promise<void>;
-    signup: (name: string, email: string, password: string) => Promise<void>;
-    logout: () => void;
-    setPin: (pin: string) => void;
-    verifyPin: (pin: string) => boolean;
-    lockApp: () => void;
+  user: User | null;
+  accessToken: string | null;
+  refreshToken: string | null;
+  isAuthenticated: boolean;
+  isLocked: boolean;
+  isLoading: boolean;
+  
+  login: (email: string, password: string) => Promise<void>;
+  register: (data: any) => Promise<void>;
+  logout: () => void;
+  setPin: (pin: string) => void;
+  verifyPin: (pin: string) => boolean;
+  lockApp: () => void;
+  updateUser: (data: Partial<User>) => void;
+  registerPasskey: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()(
-    persist(
-        (set, get) => ({
-            user: null,
-            savedUser: null,
-            isAuthenticated: false,
+  persist(
+    (set, get) => ({
+      user: null,
+      accessToken: null,
+      refreshToken: null,
+      isAuthenticated: false,
+      isLocked: false,
+      isLoading: false,
+
+      login: async (email, password) => {
+        set({ isLoading: true });
+        try {
+          const { data } = await authAPI.login({ email, password });
+          set({
+            isAuthenticated: true,
+            user: data.user,
+            accessToken: data.accessToken,
+            refreshToken: data.refreshToken,
             isLocked: false,
-
-            login: async (email, password) => {
-                // Mock API Call
-                await new Promise(resolve => setTimeout(resolve, 800));
-                if (email === "demo@error.com") throw new Error("Invalid credentials");
-
-                const user = {
-                    id: '1',
-                    name: 'Dr. Stephen Strange',
-                    email: email,
-                    avatar: 'https://github.com/shadcn.png'
-                };
-
-                // Keep existing PIN if email matches
-                const { savedUser } = get();
-                if (savedUser && savedUser.email === email && savedUser.pin) {
-                    user['pin'] = savedUser.pin;
-                }
-
-                set({ isAuthenticated: true, user, savedUser: user, isLocked: false });
-            },
-
-            googleLogin: async () => {
-                // Mock Google Auth
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                const user = {
-                    id: 'google-123',
-                    name: 'Stephen Strange (Google)',
-                    email: 'strange@gmail.com',
-                    avatar: 'https://github.com/shadcn.png'
-                };
-                set({ isAuthenticated: true, user, savedUser: user, isLocked: false });
-            },
-
-            signup: async (name, email, password) => {
-                // Mock Signup
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                const user = {
-                    id: 'new-user-1',
-                    name: name,
-                    email: email,
-                    avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${name}`
-                };
-                set({ isAuthenticated: true, user, savedUser: user, isLocked: false });
-            },
-
-            logout: () => set({ user: null, isAuthenticated: false }),
-
-            registerPasskey: async () => {
-                if (!window.PublicKeyCredential) {
-                    throw new Error("WebAuthn not supported");
-                }
-
-                // Demo Challenge (In real app, fetch from server)
-                const challenge = new Uint8Array(32);
-                window.crypto.getRandomValues(challenge);
-
-                const publicKey: PublicKeyCredentialCreationOptions = {
-                    challenge,
-                    rp: { name: "Prescripto", id: window.location.hostname },
-                    user: {
-                        id: Uint8Array.from("demo-user-id", c => c.charCodeAt(0)),
-                        name: "Dr. Strange",
-                        displayName: "Dr. Stephen Strange",
-                    },
-                    pubKeyCredParams: [{ alg: -7, type: "public-key" }],
-                    authenticatorSelection: { authenticatorAttachment: "platform" },
-                    timeout: 60000,
-                    attestation: "direct"
-                };
-
-                await navigator.credentials.create({ publicKey });
-                // In real app, send credential to server for verification
-            },
-
-            loginPasskey: async () => {
-                const challenge = new Uint8Array(32);
-                window.crypto.getRandomValues(challenge);
-
-                const publicKey: PublicKeyCredentialRequestOptions = {
-                    challenge,
-                    rpId: window.location.hostname,
-                    userVerification: "required",
-                    timeout: 60000,
-                };
-
-                await navigator.credentials.get({ publicKey });
-
-                // Simulating successful login after biometric check
-                set({
-                    isAuthenticated: true,
-                    user: {
-                        id: 'biometric-user',
-                        name: 'Dr. Strange (Biometric)',
-                        email: 'biometric@clinic.com',
-                        avatar: 'https://github.com/shadcn.png'
-                    }
-                });
-            }
-        }),
-        {
-            name: 'auth-storage',
+            isLoading: false,
+          });
+        } catch (error: any) {
+          set({ isLoading: false });
+          throw new Error(error.response?.data?.message || 'Login failed');
         }
-    )
+      },
+
+      register: async (registerData) => {
+        set({ isLoading: true });
+        try {
+          const { data } = await authAPI.register(registerData);
+          set({
+            isAuthenticated: true,
+            user: data.user,
+            accessToken: data.accessToken,
+            refreshToken: data.refreshToken,
+            isLocked: false,
+            isLoading: false,
+          });
+        } catch (error: any) {
+          set({ isLoading: false });
+          throw new Error(error.response?.data?.message || 'Registration failed');
+        }
+      },
+
+      logout: () =>
+        set({
+          user: null,
+          accessToken: null,
+          refreshToken: null,
+          isAuthenticated: false,
+          isLocked: false,
+        }),
+
+      setPin: (pin: string) =>
+        set((state) => ({
+          user: state.user ? { ...state.user, pin } : null,
+        })),
+
+      verifyPin: (pin: string) => {
+        const { user } = get();
+        if (user?.pin === pin) {
+          set({ isAuthenticated: true, isLocked: false });
+          return true;
+        }
+        return false;
+      },
+
+      lockApp: () => set({ isLocked: true }),
+
+      updateUser: (data) =>
+        set((state) => ({
+          user: state.user ? { ...state.user, ...data } : null,
+        })),
+        
+      registerPasskey: async () => {
+         // Placeholder for registerPasskey
+         console.log("registerPasskey called");
+      },
+    }),
+    {
+      name: 'mednivo-auth',
+    }
+  )
 );

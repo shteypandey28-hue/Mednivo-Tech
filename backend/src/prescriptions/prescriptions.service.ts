@@ -12,13 +12,15 @@ export class PrescriptionsService {
 
     return this.prisma.prescription.create({
       data: {
+        prescriptionId: `RX-${Date.now()}`,
         diagnosis,
         notes,
         doctor: { connect: { id: doctorId } },
         patient: { connect: { id: patientId } },
         items: {
-          create: items.map((item) => ({
+          create: items.map((item: any) => ({
             medicineId: item.medicineId,
+            medicineName: item.medicineName || 'Unknown Medicine',
             dosage: item.dosage,
             frequency: item.frequency,
             duration: item.duration,
