@@ -79,7 +79,7 @@ export class PdfService {
 
       // Ensure text is printed strictly within margins by setting text bounds
       const contentWidth = pageWidth - margins.left - margins.right;
-      const blocks = template?.margins?.blocks;
+      const blocks = (template?.margins as any)?.blocks;
 
       if (blocks) {
         // Advanced Drag & Drop Layout Mode
@@ -161,7 +161,7 @@ export class PdfService {
       }
 
       // Render Custom Text Blocks (Rich Text Builder)
-      const customTexts = margins.customTexts || [];
+      const customTexts = (margins as any).customTexts || [];
       customTexts.forEach((ct: any) => {
           let curY = ct.y;
           // Split by paragraphs or headers
