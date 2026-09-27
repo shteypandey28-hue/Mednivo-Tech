@@ -17,7 +17,7 @@ export function AuthCallback() {
           try {
             const parsed = JSON.parse(authStorage);
             const user = parsed?.state?.user;
-            if (user && user.isOnboarded === false) {
+            if (user && !user.isOnboarded) {
               navigate('/onboarding');
             } else if (user?.role === 'RECEPTIONIST') {
               navigate('/app/reception');
