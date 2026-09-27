@@ -90,6 +90,7 @@ model User {
   clinicId              String?
   resetToken            String?
   resetTokenExpiry      DateTime?
+  isOnboarded           Boolean                @default(false)
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
   appointments          Appointment[]          @relation("DoctorAppointments")

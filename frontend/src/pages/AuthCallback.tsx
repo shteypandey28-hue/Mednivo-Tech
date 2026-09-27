@@ -16,7 +16,10 @@ export function AuthCallback() {
         if (authStorage) {
           try {
             const parsed = JSON.parse(authStorage);
-            if (parsed?.state?.user?.role === 'RECEPTIONIST') {
+            const user = parsed?.state?.user;
+            if (user && user.isOnboarded === false) {
+              navigate('/onboarding');
+            } else if (user?.role === 'RECEPTIONIST') {
               navigate('/app/reception');
             } else {
               navigate('/app');

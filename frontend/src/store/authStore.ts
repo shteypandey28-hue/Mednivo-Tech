@@ -17,6 +17,7 @@ export interface User {
   signature?: string;
   clinic?: { id: string; name: string; logo?: string };
   pin?: string;
+  isOnboarded?: boolean;
 }
 
 interface AuthState {
