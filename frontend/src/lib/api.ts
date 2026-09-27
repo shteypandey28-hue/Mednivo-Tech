@@ -54,6 +54,7 @@ export const authAPI = {
   updateProfile: (data: any) => api.patch('/auth/profile', data),
   forgotPassword: (email: string) => api.post('/auth/forgot-password', { email }),
   resetPassword: (token: string, newPassword: string) => api.post('/auth/reset-password', { token, newPassword }),
+  deleteAccount: () => api.delete('/auth/account'),
 };
 
 // ─── Clinic API ────────────────────────────────────────────────

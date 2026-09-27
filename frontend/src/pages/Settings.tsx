@@ -428,6 +428,54 @@ export function Settings() {
                     <Save className="w-4 h-4" /> Update Password
                   </Button>
                 </div>
+
+                {/* Delete Account Section */}
+                <div className="mt-12 pt-8 border-t border-red-100">
+                  <div className="mb-6">
+                    <h3 className="text-lg font-bold text-red-600">Danger Zone</h3>
+                    <p className="text-sm text-slate-500 mt-1">Once you delete your account, there is no going back. Please be certain.</p>
+                  </div>
+                  
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-6">
+                    <div className="flex flex-col space-y-4">
+                      <div className="flex items-start gap-3">
+                        <input 
+                          type="checkbox" 
+                          id="confirm-delete"
+                          className="mt-1 h-4 w-4 rounded border-red-300 text-red-600 focus:ring-red-500"
+                          onChange={(e) => {
+                            const btn = document.getElementById('delete-account-btn') as HTMLButtonElement;
+                            if (btn) btn.disabled = !e.target.checked;
+                          }}
+                        />
+                        <label htmlFor="confirm-delete" className="text-sm text-red-900 font-medium cursor-pointer">
+                          I confirm that I want to permanently delete my account and all associated data.
+                        </label>
+                      </div>
+                      
+                      <Button 
+                        id="delete-account-btn"
+                        disabled
+                        variant="destructive"
+                        className="w-full sm:w-auto self-start gap-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={async () => {
+                          if (confirm('Are you absolutely sure you want to delete your account? This action cannot be undone.')) {
+                            try {
+                              await authAPI.deleteAccount();
+                              useAuthStore.getState().logout();
+                              window.location.href = '/login';
+                            } catch (error) {
+                              console.error('Failed to delete account', error);
+                              alert('Failed to delete account. Please try again.');
+                            }
+                          }
+                        }}
+                      >
+                        Delete My Account
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
