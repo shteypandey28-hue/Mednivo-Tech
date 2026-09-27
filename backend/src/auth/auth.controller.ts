@@ -1,7 +1,7 @@
 import { Controller, Post, Body, Get, Patch, UseGuards, HttpCode, HttpStatus, Req, Res } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
-import { RegisterDto, LoginDto, ForgotPasswordDto, ResetPasswordDto } from './dto/auth.dto';
+import { RegisterDto, LoginDto, ForgotPasswordDto, ResetPasswordDto, UpdateProfileDto } from './dto/auth.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 @Controller('auth')
@@ -42,7 +42,7 @@ export class AuthController {
 
   @Patch('profile')
   @UseGuards(AuthGuard('jwt'))
-  async updateProfile(@CurrentUser('id') userId: string, @Body() data: any) {
+  async updateProfile(@CurrentUser('id') userId: string, @Body() data: UpdateProfileDto) {
     return this.authService.updateProfile(userId, data);
   }
 
