@@ -118,11 +118,13 @@ export function Settings() {
   };
 
   const tabs = [
-    { id: 'profile', label: 'Doctor Profile', icon: User },
-    { id: 'clinic', label: 'Clinic Details', icon: Building2 },
-    { id: 'templates', label: 'Prescription Templates', icon: SettingsIcon },
-    { id: 'preferences', label: 'Consultation Preferences', icon: Stethoscope },
-    { id: 'billing', label: 'Billing & Payments', icon: CreditCard },
+    { id: 'profile', label: user?.role === 'DOCTOR' ? 'Doctor Profile' : 'My Profile', icon: User },
+    ...(user?.role === 'DOCTOR' || user?.role === 'ADMIN' ? [
+      { id: 'clinic', label: 'Clinic Details', icon: Building2 },
+      { id: 'templates', label: 'Prescription Templates', icon: SettingsIcon },
+      { id: 'preferences', label: 'Consultation Preferences', icon: Stethoscope },
+      { id: 'billing', label: 'Billing & Payments', icon: CreditCard },
+    ] : []),
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'security', label: 'Security & PIN', icon: Lock },
   ];
@@ -190,39 +192,44 @@ export function Settings() {
                       className="h-11" 
                     />
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-slate-700 block mb-1.5">Specialty</label>
-                    <Input 
-                      value={profileData.specialty} 
-                      onChange={e => setProfileData(p => ({ ...p, specialty: e.target.value }))}
-                      className="h-11" 
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-slate-700 block mb-1.5">Qualifications</label>
-                    <Input 
-                      value={profileData.qualification} 
-                      onChange={e => setProfileData(p => ({ ...p, qualification: e.target.value }))}
-                      className="h-11" 
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-slate-700 block mb-1.5">Registration Number</label>
-                    <Input 
-                      value={profileData.registrationNumber} 
-                      onChange={e => setProfileData(p => ({ ...p, registrationNumber: e.target.value }))}
-                      className="h-11" 
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-slate-700 block mb-1.5">Consultation Fee (₹)</label>
-                    <Input 
-                      value={profileData.consultationFee} 
-                      onChange={e => setProfileData(p => ({ ...p, consultationFee: Number(e.target.value) }))}
-                      type="number" 
-                      className="h-11" 
-                    />
-                  </div>
+                  
+                  {user?.role === 'DOCTOR' && (
+                    <>
+                      <div>
+                        <label className="text-sm font-medium text-slate-700 block mb-1.5">Specialty</label>
+                        <Input 
+                          value={profileData.specialty} 
+                          onChange={e => setProfileData(p => ({ ...p, specialty: e.target.value }))}
+                          className="h-11" 
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-slate-700 block mb-1.5">Qualifications</label>
+                        <Input 
+                          value={profileData.qualification} 
+                          onChange={e => setProfileData(p => ({ ...p, qualification: e.target.value }))}
+                          className="h-11" 
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-slate-700 block mb-1.5">Registration Number</label>
+                        <Input 
+                          value={profileData.registrationNumber} 
+                          onChange={e => setProfileData(p => ({ ...p, registrationNumber: e.target.value }))}
+                          className="h-11" 
+                        />
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-slate-700 block mb-1.5">Consultation Fee (₹)</label>
+                        <Input 
+                          value={profileData.consultationFee} 
+                          onChange={e => setProfileData(p => ({ ...p, consultationFee: Number(e.target.value) }))}
+                          type="number" 
+                          className="h-11" 
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 <div className="pt-4 flex justify-end">
