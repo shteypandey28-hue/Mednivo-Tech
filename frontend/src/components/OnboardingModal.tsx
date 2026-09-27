@@ -32,7 +32,14 @@ export function OnboardingModal() {
 
     setIsLoading(true);
     try {
-      await authAPI.updateProfile({ name: displayName, role, isOnboarded: true });
+      const response = await authAPI.updateProfile({ name: displayName, role, isOnboarded: true });
+
+      // Update the local Zustand store so localStorage knows we are onboarded
+      useAuthStore.getState().updateUser({ 
+        name: displayName, 
+        role, 
+        isOnboarded: true 
+      });
 
       // Redirect immediately — full page reload ensures fresh state
       if (role === 'RECEPTIONIST') {
