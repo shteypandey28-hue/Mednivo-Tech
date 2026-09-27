@@ -57,4 +57,18 @@ export class AuthController {
   async resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto.token, dto.newPassword);
   }
+
+  @Get('migrate')
+  async runMigration() {
+    return new Promise((resolve, reject) => {
+      const { exec } = require('child_process');
+      exec('npx prisma db push --accept-data-loss', (error: any, stdout: any, stderr: any) => {
+        if (error) {
+          resolve({ success: false, error: error.message, stderr });
+        } else {
+          resolve({ success: true, stdout });
+        }
+      });
+    });
+  }
 }
