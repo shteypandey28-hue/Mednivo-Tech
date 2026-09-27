@@ -26,7 +26,10 @@ function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<AuthPage />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
-        <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
+        
+        <Route element={<ProtectedRoute />}>
+          <Route path="/onboarding" element={<Onboarding />} />
+        </Route>
 
         <Route path="/app" element={<ProtectedRoute />}>
           <Route element={<Layout />}>
