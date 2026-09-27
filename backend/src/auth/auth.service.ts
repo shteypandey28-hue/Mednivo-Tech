@@ -179,9 +179,17 @@ export class AuthService {
       throw new NotFoundException('User not found');
     }
 
-    // Delete user
-    await this.prisma.user.delete({
+    // Soft delete the user to preserve foreign key constraints (like past medical records, prescriptions, etc.)
+    // We anonymize the email so the user can re-register with the same email later if they want.
+    const deletedEmail = `deleted_${Date.now()}_${user.email}`;
+    
+    await this.prisma.user.update({
       where: { id: userId },
+      data: {
+        isActive: false,
+        email: deletedEmail,
+        name: 'Deleted User',
+      }
     });
 
     return { success: true, message: 'Account deleted successfully' };
