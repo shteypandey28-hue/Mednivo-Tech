@@ -37,15 +37,12 @@ export function OnboardingModal() {
       const token = useAuthStore.getState().accessToken;
       if (token) await setAuth(token);
 
-      // Redirect to correct dashboard based on role
+      // Redirect to correct dashboard based on role and reload to refresh layout
       if (role === 'RECEPTIONIST') {
-        navigate('/app/reception');
+        window.location.href = '/app/reception';
       } else {
-        navigate('/app');
+        window.location.href = '/app';
       }
-
-      // Force page reload to refresh sidebar/layout with new role
-      window.location.reload();
     } catch (error) {
       console.error('Failed to complete onboarding:', error);
       setIsLoading(false);
@@ -66,7 +63,7 @@ export function OnboardingModal() {
         initial={{ opacity: 0, scale: 0.92, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-        className="relative z-10 w-full max-w-[520px] bg-white rounded-3xl shadow-2xl overflow-hidden"
+        className="relative z-10 w-full max-w-[520px] bg-white rounded-3xl shadow-2xl overflow-visible"
       >
         {/* Green top accent */}
         <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-500" />
@@ -74,6 +71,7 @@ export function OnboardingModal() {
         <div className="p-8 sm:p-10">
           {/* Header */}
           <div className="text-center mb-8">
+            <img src="/logo.png" alt="Mednivo" className="h-10 object-contain mx-auto mb-5" />
             <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold uppercase tracking-wide mb-4">
               <Sparkles className="w-3.5 h-3.5" />
               One-time setup
@@ -149,7 +147,7 @@ export function OnboardingModal() {
                           initial={{ opacity: 0, y: -4 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -4 }}
-                          className="absolute top-full left-0 mt-1 w-24 bg-white border border-slate-200 rounded-xl shadow-xl z-20 py-1"
+                          className="absolute bottom-full left-0 mb-1 w-24 bg-white border border-slate-200 rounded-xl shadow-xl z-20 py-1"
                         >
                           {TITLES.map(t => (
                             <button
