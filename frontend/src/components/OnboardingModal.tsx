@@ -63,10 +63,8 @@ export function OnboardingModal() {
         initial={{ opacity: 0, scale: 0.92, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-        className="relative z-10 w-full max-w-[520px] bg-white rounded-3xl shadow-2xl overflow-visible"
+        className="relative z-10 w-full max-w-[520px] bg-white rounded-3xl shadow-2xl overflow-visible border-t-[5px] border-emerald-500"
       >
-        {/* Green top accent - rounded to match card */}
-        <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-500 rounded-t-3xl" />
 
         <div className="p-8 sm:p-10">
           {/* Header */}
