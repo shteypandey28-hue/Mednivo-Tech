@@ -215,6 +215,71 @@ export class AuthService {
     return { message: 'Password reset successfully' };
   }
 
+  async googleLogin(req: any) {
+    if (!req.user) {
+      throw new UnauthorizedException('No user from google');
+    }
+
+    const { email, firstName, lastName } = req.user;
+
+    let user = await this.prisma.user.findUnique({
+      where: { email },
+      include: {
+        clinic: {
+          select: { id: true, name: true, logo: true },
+        },
+      },
+    });
+
+    if (!user) {
+      // Create user if they don't exist
+      const passwordHash = await bcrypt.hash(uuidv4(), 12); // random password
+      
+      let clinic = await this.prisma.clinic.findFirst();
+      if (!clinic) {
+        clinic = await this.prisma.clinic.create({
+          data: {
+            name: 'My Clinic',
+            clinicSettings: { create: {} },
+          },
+        });
+      }
+
+      user = await this.prisma.user.create({
+        data: {
+          email,
+          passwordHash,
+          name: `${firstName} ${lastName}`,
+          role: 'DOCTOR',
+          clinicId: clinic.id,
+        },
+        include: {
+          clinic: {
+            select: { id: true, name: true, logo: true },
+          },
+        },
+      });
+    }
+
+    const tokens = this.generateTokens(user.id, user.email, user.role);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        clinicId: user.clinicId,
+      },
+      ...tokens,
+    };
+  }
+
   private generateTokens(userId: string, email: string, role: string) {
     const payload = { sub: userId, email, role };
 

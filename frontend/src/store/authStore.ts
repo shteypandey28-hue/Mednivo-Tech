@@ -35,6 +35,7 @@ interface AuthState {
   lockApp: () => void;
   updateUser: (data: Partial<User>) => void;
   registerPasskey: () => Promise<void>;
+  setAuth: (accessToken: string) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -62,6 +63,16 @@ export const useAuthStore = create<AuthState>()(
         } catch (error: any) {
           set({ isLoading: false });
           throw new Error(error.response?.data?.message || 'Login failed');
+        }
+      },
+
+      setAuth: async (accessToken) => {
+        set({ accessToken, isAuthenticated: true, isLoading: true });
+        try {
+          const { data } = await authAPI.getProfile();
+          set({ user: data, isLoading: false });
+        } catch (error) {
+          set({ isAuthenticated: false, accessToken: null, isLoading: false });
         }
       },
 
