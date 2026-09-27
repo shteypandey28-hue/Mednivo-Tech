@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Sidebar } from "./Sidebar";
+import { OnboardingModal } from "./OnboardingModal";
 import { useAuthStore } from "@/store/authStore";
 import { Search, Bell, Command } from "lucide-react";
 
@@ -105,6 +106,9 @@ export function Layout() {
           </motion.div>
         </div>
       )}
+
+      {/* Onboarding Modal - shows on first login */}
+      <OnboardingModal />
     </div>
   );
 }

@@ -17,7 +17,6 @@ import { Settings } from "@/pages/Settings";
 import { Landing } from "@/pages/Landing";
 import { AuthPage } from "@/pages/Auth";
 import { AuthCallback } from "@/pages/AuthCallback";
-import { Onboarding } from "@/pages/Onboarding";
 
 function App() {
   return (
@@ -26,10 +25,6 @@ function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<AuthPage />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
-        
-        <Route element={<ProtectedRoute />}>
-          <Route path="/onboarding" element={<Onboarding />} />
-        </Route>
 
         <Route path="/app" element={<ProtectedRoute />}>
           <Route element={<Layout />}>
