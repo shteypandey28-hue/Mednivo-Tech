@@ -15,6 +15,7 @@ export function Settings() {
   const { user, updateUser } = useAuthStore();
   const [isSaving, setIsSaving] = useState(false);
   const [clinic, setClinic] = useState<any>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const [settingsData, setSettingsData] = useState({
     workingHoursStart: '09:00',
@@ -443,10 +444,8 @@ export function Settings() {
                           type="checkbox" 
                           id="confirm-delete"
                           className="mt-1 h-4 w-4 rounded border-red-300 text-red-600 focus:ring-red-500"
-                          onChange={(e) => {
-                            const btn = document.getElementById('delete-account-btn') as HTMLButtonElement;
-                            if (btn) btn.disabled = !e.target.checked;
-                          }}
+                          checked={confirmDelete}
+                          onChange={(e) => setConfirmDelete(e.target.checked)}
                         />
                         <label htmlFor="confirm-delete" className="text-sm text-red-900 font-medium cursor-pointer">
                           I confirm that I want to permanently delete my account and all associated data.
@@ -454,8 +453,7 @@ export function Settings() {
                       </div>
                       
                       <Button 
-                        id="delete-account-btn"
-                        disabled
+                        disabled={!confirmDelete}
                         variant="destructive"
                         className="w-full sm:w-auto self-start gap-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                         onClick={async () => {
