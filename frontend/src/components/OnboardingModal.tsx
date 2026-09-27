@@ -65,13 +65,13 @@ export function OnboardingModal() {
         transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
         className="relative z-10 w-full max-w-[520px] bg-white rounded-3xl shadow-2xl overflow-visible"
       >
-        {/* Green top accent */}
-        <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-500" />
+        {/* Green top accent - rounded to match card */}
+        <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-500 rounded-t-3xl" />
 
         <div className="p-8 sm:p-10">
           {/* Header */}
           <div className="text-center mb-8">
-            <img src="/logo.png" alt="Mednivo" className="h-10 object-contain mx-auto mb-5" />
+            <img src="/logo.png" alt="Mednivo" className="h-14 object-contain mx-auto mb-5" />
             <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold uppercase tracking-wide mb-4">
               <Sparkles className="w-3.5 h-3.5" />
               One-time setup
