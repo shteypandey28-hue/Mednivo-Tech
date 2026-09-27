@@ -34,17 +34,18 @@ export function OnboardingModal() {
     try {
       await authAPI.updateProfile({ name: displayName, role, isOnboarded: true });
 
-      const token = useAuthStore.getState().accessToken;
-      if (token) await setAuth(token);
-
-      // Redirect to correct dashboard based on role and reload to refresh layout
+      // Redirect immediately — full page reload ensures fresh state
       if (role === 'RECEPTIONIST') {
         window.location.href = '/app/reception';
       } else {
         window.location.href = '/app';
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to complete onboarding:', error);
+      // If it's a network error but the update might have gone through, still try to redirect
+      if (error?.response?.status !== 401) {
+        alert('Something went wrong. Please try again.');
+      }
       setIsLoading(false);
     }
   };
