@@ -197,7 +197,7 @@ export function ReceptionDashboard() {
               >
                 {doctors.length === 0 && <option value="">Loading doctors...</option>}
                 {doctors.map(doc => (
-                  <option key={doc.id} value={doc.id}>Dr. {doc.name}</option>
+                  <option key={doc.id} value={doc.id}>{doc.name}</option>
                 ))}
               </select>
             </div>
