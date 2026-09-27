@@ -189,7 +189,17 @@ export function AuthPage() {
 
           <button
             type="button"
-            onClick={() => window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/auth/google`}
+            onClick={() => {
+              const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+              // If baseUrl already ends with /api, just append /auth/google
+              // If it doesn't, append /api/auth/google
+              // Also strip trailing slashes
+              const cleanBase = baseUrl.replace(/\/+$/, '');
+              const authUrl = cleanBase.endsWith('/api') 
+                ? `${cleanBase}/auth/google` 
+                : `${cleanBase}/api/auth/google`;
+              window.location.href = authUrl;
+            }}
             className="w-full h-12 bg-white border border-slate-200 text-slate-700 font-medium rounded-xl flex items-center justify-center gap-2 hover:bg-slate-50 focus:ring-4 focus:ring-slate-100 transition-all mb-4"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
