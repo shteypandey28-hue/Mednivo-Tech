@@ -13,8 +13,8 @@ export class PdfService {
     // Fetch requested template or the default one for doctor
     let template = null;
     if (templateId) {
-      template = await this.prisma.printTemplate.findUnique({
-        where: { id: templateId }
+      template = await this.prisma.printTemplate.findFirst({
+        where: { id: templateId, doctorId: prescriptionData.doctorId }
       });
     }
 

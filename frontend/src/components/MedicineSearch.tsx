@@ -3,7 +3,7 @@ import { usePrescriptionStore } from "@/store/prescriptionStore";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Plus, Loader2 } from "lucide-react";
-import { MEDICINES_MOCK } from "@/lib/mockData";
+import { medicinesAPI } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 
 // Simple debounce hook
@@ -36,49 +36,19 @@ export function MedicineSearch() {
 
             setIsLoading(true);
             try {
-                // Determine if we should use API or Mock (fallback)
-                // In production, this would always be API.
-                // For now, we try API, if it fails/returns empty and we are in dev, maybe fallback? 
-                // No, let's stick to API if backend is running.
-
-                // Assuming backend is proxy-ed or CORS enabled. 
-                // Vite proxy usually needed or absolute URL. 
-                // Let's assume localhost:3000 for now or relative if proxy set.
-                // Assuming no proxy set yet, so using absolute for dev.
-                const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-                const res = await fetch(`${apiUrl}/medicines?q=${encodeURIComponent(debouncedQuery)}`);
-                if (!res.ok) throw new Error("API Error");
-                const data = await res.json();
-
-                // transform data if needed to match keys
-                const formatted = data.map((m: any) => ({
+                const { data } = await medicinesAPI.search(debouncedQuery);
+                setSearchResults(data.map((m: any) => ({
                     id: m.id,
+                    sourceId: m.id,
                     name: m.name,
+                    genericName: m.genericName,
                     type: m.type,
                     defaultDosage: m.defaultDosage,
                     defaultFreq: m.defaultFreq || '1-0-1',
-                }));
-
-                // If API returns nothing, maybe fallback to MOCK for demo purposes if backend empty?
-                // User asked to add dataset, so we expect backend to have data eventually.
-                if (formatted.length === 0 && MEDICINES_MOCK.length > 0) {
-                    // Fallback check: Filter mock data too
-                    const mockResults = MEDICINES_MOCK.filter(m =>
-                        m.name.toLowerCase().includes(debouncedQuery.toLowerCase())
-                    );
-                    setSearchResults(prev => [...formatted, ...mockResults]);
-                    // Note: Mixing IDs might be weird, but okay for hybrid.
-                } else {
-                    setSearchResults(formatted);
-                }
-
+                })));
             } catch (error) {
-                console.error("Search failed, falling back to mock", error);
-                // Fallback to mock
-                const results = MEDICINES_MOCK.filter(m =>
-                    m.name.toLowerCase().includes(debouncedQuery.toLowerCase())
-                );
-                setSearchResults(results);
+                console.error("Medicine search failed", error);
+                setSearchResults([]);
             } finally {
                 setIsLoading(false);
             }
@@ -94,7 +64,9 @@ export function MedicineSearch() {
     const handleAdd = (med: any) => {
         addMedicine({
             id: med.id.toString(), // Ensure string
+            sourceId: med.sourceId,
             name: med.name,
+            genericName: med.genericName,
             dosage: med.defaultDosage || '500mg', // Default if missing
             frequency: med.defaultFreq || '1-0-1',
             duration: '5 days',

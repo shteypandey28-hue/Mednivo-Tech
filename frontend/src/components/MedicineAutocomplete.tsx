@@ -15,7 +15,7 @@ export interface MedicineResult {
   route?: string;
   manufacturer?: string;
   packSize?: string;
-  mrp?: string;
+  mrp?: string | number;
 }
 
 interface Props {
@@ -23,9 +23,10 @@ interface Props {
   onChange: (value: string, medicine?: MedicineResult) => void;
   placeholder?: string;
   className?: string;
+  clearOnSelect?: boolean;
 }
 
-export function MedicineAutocomplete({ value, onChange, placeholder = "Search medicine (e.g. Augmentin, Paracetamol)...", className = "" }: Props) {
+export function MedicineAutocomplete({ value, onChange, placeholder = "Search medicine (e.g. Augmentin, Paracetamol)...", className = "", clearOnSelect = false }: Props) {
   const [query, setQuery] = useState(value);
   const [results, setResults] = useState<MedicineResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -36,7 +37,7 @@ export function MedicineAutocomplete({ value, onChange, placeholder = "Search me
   // Debounce search
   useEffect(() => {
     const timer = setTimeout(async () => {
-      if (query.length > 2 && query !== value) {
+      if (query.length > 2) {
         setIsLoading(true);
         setError(null);
         try {
@@ -69,17 +70,21 @@ export function MedicineAutocomplete({ value, onChange, placeholder = "Search me
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Sync external value changes
+  // Sync only when the parent actually changes `value`; comparing against `query`
+  // on every render wiped whatever the user was typing.
+  const lastValue = useRef(value);
   useEffect(() => {
-    if (value !== query && !isOpen) {
+    if (value !== lastValue.current) {
+      lastValue.current = value;
       setQuery(value);
     }
-  }, [value, isOpen, query]);
+  }, [value]);
 
   const handleSelect = (med: MedicineResult) => {
-    setQuery(med.name);
+    setQuery(clearOnSelect ? '' : med.name);
     onChange(med.name, med);
     setIsOpen(false);
+    setResults([]);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

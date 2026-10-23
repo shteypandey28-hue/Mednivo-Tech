@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Save, User, Building2, Bell, Lock, CreditCard, Stethoscope, Settings as SettingsIcon, Loader2 } from "lucide-react";
+import { Save, User, Building2, Bell, Lock, CreditCard, Stethoscope, Settings as SettingsIcon, Loader2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuthStore } from "@/store/authStore";
 import { authAPI, clinicAPI } from "@/lib/api";
 import { TemplateDesigner } from "@/components/TemplateDesigner";
+import { TeamSettings } from "@/components/TeamSettings";
 
 const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.05 } } };
 const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
@@ -120,6 +121,7 @@ export function Settings() {
   const tabs = [
     { id: 'profile', label: user?.role === 'RECEPTIONIST' ? 'Receptionist Profile' : 'Doctor Profile', icon: User },
     { id: 'clinic', label: 'Clinic Details', icon: Building2 },
+    ...(user?.role === 'RECEPTIONIST' ? [] : [{ id: 'team', label: 'Team', icon: Users }]),
     { id: 'templates', label: 'Prescription Templates', icon: SettingsIcon },
     { id: 'preferences', label: 'Consultation Preferences', icon: Stethoscope },
     { id: 'billing', label: 'Billing & Payments', icon: CreditCard },
@@ -313,6 +315,8 @@ export function Settings() {
               </div>
             )}
 
+            {activeTab === 'team' && <TeamSettings joinCode={clinic?.joinCode} />}
+
             {activeTab === 'templates' && (
               <TemplateDesigner />
             )}
@@ -477,7 +481,7 @@ export function Settings() {
               </div>
             )}
 
-            {!['profile', 'clinic', 'preferences', 'billing', 'security'].includes(activeTab) && (
+            {!['profile', 'clinic', 'team', 'templates', 'preferences', 'billing', 'security'].includes(activeTab) && (
               <div className="text-center py-20">
                 <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <SettingsIcon className="w-8 h-8 text-slate-300" />

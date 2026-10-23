@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { patientsAPI, consultationsAPI, queueAPI, aiAPI } from "@/lib/api";
 import { Loader2, Sparkles } from "lucide-react";
 import { usePrescriptionStore } from "@/store/prescriptionStore";
@@ -19,14 +19,13 @@ export function Consultation() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState('vitals');
-  const [isRecording, setIsRecording] = useState(false);
   
   const [patient, setPatient] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [consultationId, setConsultationId] = useState<string | null>(null);
   const [aiSummary, setAiSummary] = useState<any>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const recordingTimeout = useRef<any>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Form State
   const [vitals, setVitals] = useState({
@@ -64,54 +63,41 @@ export function Consultation() {
     initConsultation();
   }, [id]);
 
+  const num = (v: string) => (v === '' || v == null ? undefined : Number(v));
+
+  // Persist everything the doctor entered before closing the consultation.
+  const saveConsultation = async () => {
+    if (!consultationId) return;
+    await consultationsAPI.update(consultationId, {
+      chiefComplaint: notes.complaints || undefined,
+      examination: notes.examination || undefined,
+      advice: notes.advice || undefined,
+    });
+    const v = {
+      temperature: num(vitals.temperature), systolicBP: num(vitals.systolic), diastolicBP: num(vitals.diastolic),
+      pulse: num(vitals.pulse), spo2: num(vitals.spo2), weight: num(vitals.weight), height: num(vitals.height),
+    };
+    if (Object.values(v).some((x) => x !== undefined && !Number.isNaN(x))) {
+      await consultationsAPI.addVitals(consultationId, v);
+    }
+    if (diagnosis.trim()) {
+      await consultationsAPI.addDiagnosis(consultationId, { name: diagnosis.trim() });
+    }
+  };
+
   const handleComplete = async () => {
+    if (!consultationId || saving) return;
+    setSaving(true);
+    setSaveError(null);
     try {
-      if (consultationId) {
-        // Here we could save all pending notes first
-        await consultationsAPI.complete(consultationId);
-        
-        // Update queue status if they came from queue
-        // For now just navigate away
-        navigate('/app/queue');
-      }
+      await saveConsultation();
+      await consultationsAPI.complete(consultationId);
+      navigate('/app/queue');
     } catch (error) {
       console.error("Failed to complete consultation", error);
-    }
-  };
-
-  const toggleRecording = async () => {
-    if (isRecording) {
-      stopRecordingAndProcess();
-    } else {
-      setIsRecording(true);
-      // Auto-stop after 4 seconds for demo purposes
-      recordingTimeout.current = setTimeout(() => {
-        stopRecordingAndProcess();
-      }, 4000);
-    }
-  };
-
-  const stopRecordingAndProcess = async () => {
-    setIsRecording(false);
-    clearTimeout(recordingTimeout.current);
-    
-    // Process mock voice
-    setIsProcessing(true);
-    try {
-      const mockTranscript = "Patient came with complaint of fever and cough for the last 3 days. Temperature is 101.2 and blood pressure is 120 over 80. Diagnosis is Viral Pharyngitis.";
-      const res = await aiAPI.processVoice(mockTranscript);
-      const { extractedData } = res.data;
-      
-      if (extractedData.vitals) {
-        setVitals(prev => ({ ...prev, ...extractedData.vitals }));
-      }
-      if (extractedData.complaints) setNotes(prev => ({ ...prev, complaints: extractedData.complaints }));
-      if (extractedData.diagnosis) setDiagnosis(extractedData.diagnosis);
-      
-    } catch (error) {
-      console.error("AI processing failed", error);
+      setSaveError("Couldn't save this consultation. Please try again.");
     } finally {
-      setIsProcessing(false);
+      setSaving(false);
     }
   };
 
@@ -152,8 +138,9 @@ export function Consultation() {
           <Button variant="outline" className="gap-2 text-slate-600 bg-white">
             <Clock className="w-4 h-4" /> History
           </Button>
-          <button onClick={handleComplete} className="flex items-center bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-4 py-2 rounded-xl font-medium shadow-lg hover:shadow-xl transition-all gap-2">
-            <Check className="w-4 h-4" /> Complete Consultation
+          {saveError && <span className="self-center text-sm text-red-600">{saveError}</span>}
+          <button onClick={handleComplete} disabled={saving || !consultationId} className="flex items-center bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-4 py-2 rounded-xl font-medium shadow-lg hover:shadow-xl transition-all gap-2 disabled:opacity-60">
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} {saving ? 'Saving…' : 'Complete Consultation'}
           </button>
         </div>
       </motion.div>
@@ -182,21 +169,17 @@ export function Consultation() {
           {/* AI Voice Assistant Button */}
           <div className="mt-8">
             <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 px-2">AI Assistant</div>
-            <button 
-              onClick={toggleRecording}
-              disabled={isProcessing}
-              className={`flex flex-col items-center justify-center gap-3 w-full p-6 rounded-2xl border-2 transition-all ${
-                isRecording 
-                  ? 'bg-red-50 border-red-200 text-red-600 shadow-inner' 
-                  : isProcessing ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-gradient-to-br from-violet-50 to-fuchsia-50 border-violet-100 text-violet-700 hover:shadow-md'
-              }`}
+            <button
+              disabled
+              title="Voice notes are coming soon"
+              className="w-full p-4 rounded-2xl border flex items-center gap-4 transition-all text-left bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed"
             >
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center ${isRecording ? 'bg-red-100 animate-pulse' : isProcessing ? 'bg-amber-100 animate-spin' : 'bg-white shadow-sm'}`}>
-                {isProcessing ? <Loader2 className="w-6 h-6 text-amber-500" /> : <Mic className={`w-6 h-6 ${isRecording ? 'text-red-500' : 'text-violet-500'}`} />}
+              <div className="w-12 h-12 rounded-full flex items-center justify-center bg-white shadow-sm">
+                <Mic className="w-6 h-6 text-slate-300" />
               </div>
-              <div className="text-center">
-                <span className="font-semibold block">{isRecording ? 'Listening...' : isProcessing ? 'Processing AI...' : 'Voice to Notes'}</span>
-                <span className="text-xs opacity-70 mt-1">{isRecording ? 'Will auto-stop (demo)' : isProcessing ? 'Extracting info' : 'Auto-fill consultation'}</span>
+              <div>
+                <span className="font-semibold block">Voice to Notes</span>
+                <span className="text-xs opacity-70 mt-1">Coming soon</span>
               </div>
             </button>
           </div>
@@ -294,13 +277,18 @@ export function Consultation() {
                 <h3 className="text-xl font-semibold text-slate-800 mb-2">Create Prescription</h3>
                 <p className="text-slate-500 max-w-md mb-8">Use the full-screen prescription editor to search medicines, add dosages, and generate a printable PDF.</p>
                 <Link to="/app/prescriptions/new" onClick={() => {
+                  usePrescriptionStore.getState().resetPrescription();
+                  usePrescriptionStore.getState().setConsultationId(consultationId ?? undefined);
                   usePrescriptionStore.getState().setPatient({
+                    id: patient?.id,
+                    patientUHID: patient?.patientUHID,
                     name: patient?.name || '',
                     age: patient?.age || '',
                     gender: patient?.gender || 'Male',
                     weight: vitals.weight || ''
                   });
                   usePrescriptionStore.getState().setDiagnosis(diagnosis);
+                  usePrescriptionStore.getState().setAdvice(notes.advice);
                 }}>
                   <Button size="lg" className="bg-slate-900 text-white hover:bg-slate-800 rounded-xl">
                     Open Prescription Editor

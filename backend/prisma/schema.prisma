@@ -15,6 +15,7 @@ model Clinic {
   phone                 String?
   email                 String?
   website               String?
+  joinCode              String?                @unique
   gstNumber             String?
   registrationInfo      String?
   invoicePrefix         String                 @default("INV")
@@ -111,7 +112,7 @@ model User {
 
 model Patient {
   id                    String               @id @default(uuid())
-  patientUHID           String               @unique
+  patientUHID           String
   name                  String
   dateOfBirth           DateTime?
   age                   Int?
@@ -150,6 +151,7 @@ model Patient {
   queueEntries          QueueEntry[]
   vitals                Vital[]
 
+  @@unique([clinicId, patientUHID])
   @@index([phone])
   @@index([patientUHID])
   @@index([name])
@@ -275,6 +277,8 @@ model Medicine {
   defaultDuration String?
   defaultFreq     String?
   instruction     String?
+  packSize        String?
+  mrp             Float?
   isActive        Boolean            @default(true)
   items           PrescriptionItem[]
 
@@ -410,7 +414,7 @@ model MedicalDocument {
 
 model Invoice {
   id              String        @id @default(uuid())
-  invoiceNumber   String        @unique
+  invoiceNumber   String
   clinicId        String
   patientId       String
   doctorId        String?
@@ -436,6 +440,7 @@ model Invoice {
   payments        Payment[]
   receipt         Receipt?
 
+  @@unique([clinicId, invoiceNumber])
   @@index([patientId])
   @@index([clinicId])
 }
@@ -477,7 +482,7 @@ model Payment {
 
 model Receipt {
   id            String   @id @default(uuid())
-  receiptNumber String   @unique
+  receiptNumber String
   clinicId      String
   invoiceId     String   @unique
   paymentId     String   @unique
@@ -488,6 +493,8 @@ model Receipt {
   clinic        Clinic   @relation(fields: [clinicId], references: [id])
   invoice       Invoice  @relation(fields: [invoiceId], references: [id])
   payment       Payment  @relation(fields: [paymentId], references: [id])
+
+  @@unique([clinicId, receiptNumber])
 }
 
 model Refund {

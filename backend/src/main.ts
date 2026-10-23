@@ -15,9 +15,15 @@ async function bootstrap() {
   // Global API prefix
   app.setGlobalPrefix('api');
   
-  // Enable CORS
+  // CORS: the web app's domains plus any extra origins in FRONTEND_URL (comma-separated).
+  const allowedOrigins = new Set([
+    'https://mednivo.in',
+    'https://www.mednivo.in',
+    'http://localhost:5173',
+    ...(process.env.FRONTEND_URL || '').split(',').map((o) => o.trim().replace(/\/$/, '')).filter(Boolean),
+  ]);
   app.enableCors({
-    origin: true,
+    origin: (origin, cb) => cb(null, !origin || allowedOrigins.has(origin)),
     credentials: true,
   });
   

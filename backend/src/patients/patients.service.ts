@@ -1,40 +1,41 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { pick, requireClinic } from '../common/tenant';
+
+const PATIENT_FIELDS = [
+  'name', 'dateOfBirth', 'age', 'gender', 'phone', 'email', 'address', 'city', 'state', 'pincode',
+  'weight', 'height', 'bloodGroup', 'allergies', 'existingConditions', 'currentMedications',
+  'previousHistory', 'emergencyContactName', 'emergencyContactPhone', 'insuranceProvider',
+  'insurancePolicyNumber', 'abhaId', 'notes',
+] as const;
 
 @Injectable()
 export class PatientsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(createPatientDto: any, clinicId?: string) {
-    // Auto-generate UHID
-    let patientUHID = 'MED-000001';
-    if (clinicId) {
-      const clinic = await this.prisma.clinic.findUnique({ where: { id: clinicId } });
-      if (clinic) {
-        const counter = clinic.patientIdCounter + 1;
-        patientUHID = `${clinic.patientIdPrefix}-${String(counter).padStart(6, '0')}`;
-        await this.prisma.clinic.update({
-          where: { id: clinicId },
-          data: { patientIdCounter: counter },
-        });
-      }
-    } else {
-      const count = await this.prisma.patient.count();
-      patientUHID = `MED-${String(count + 1).padStart(6, '0')}`;
-    }
+  async create(createPatientDto: any, clinicId: string) {
+    requireClinic(clinicId);
+    if (!String(createPatientDto?.name || '').trim()) throw new BadRequestException('Patient name is required');
+    // Increment atomically so two front-desk users can't mint the same UHID.
+    const clinic = await this.prisma.clinic.update({
+      where: { id: clinicId },
+      data: { patientIdCounter: { increment: 1 } },
+      select: { patientIdPrefix: true, patientIdCounter: true },
+    });
+    const patientUHID = `${clinic.patientIdPrefix}-${String(clinic.patientIdCounter).padStart(6, '0')}`;
 
     return this.prisma.patient.create({
       data: {
-        ...createPatientDto,
+        ...normalize(pick(createPatientDto, PATIENT_FIELDS)),
+        name: String(createPatientDto?.name || '').trim(),
         patientUHID,
         clinicId,
       },
     });
   }
 
-  async findAll(query?: string, clinicId?: string) {
-    const where: any = {};
-    if (clinicId) where.clinicId = clinicId;
+  async findAll(query: string | undefined, clinicId: string) {
+    const where: any = { clinicId: requireClinic(clinicId), isActive: true };
 
     if (query) {
       where.OR = [
@@ -52,9 +53,9 @@ export class PatientsService {
     });
   }
 
-  async findOne(id: string) {
-    const patient = await this.prisma.patient.findUnique({
-      where: { id },
+  async findOne(id: string, clinicId: string) {
+    const patient = await this.prisma.patient.findFirst({
+      where: { id, clinicId: requireClinic(clinicId) },
       include: {
         prescriptions: {
           include: { items: true, doctor: { select: { name: true } } },
@@ -97,14 +98,21 @@ export class PatientsService {
     return patient;
   }
 
-  async update(id: string, updatePatientDto: any) {
+  private async assertOwned(id: string, clinicId: string) {
+    const found = await this.prisma.patient.findFirst({ where: { id, clinicId: requireClinic(clinicId) }, select: { id: true } });
+    if (!found) throw new NotFoundException('Patient not found');
+  }
+
+  async update(id: string, updatePatientDto: any, clinicId: string) {
+    await this.assertOwned(id, clinicId);
     return this.prisma.patient.update({
       where: { id },
-      data: updatePatientDto,
+      data: normalize(pick(updatePatientDto, PATIENT_FIELDS)),
     });
   }
 
-  async remove(id: string) {
+  async remove(id: string, clinicId: string) {
+    await this.assertOwned(id, clinicId);
     // Soft delete
     return this.prisma.patient.update({
       where: { id },
@@ -125,4 +133,19 @@ export class PatientsService {
 
     return { total, newToday, newThisMonth };
   }
+}
+
+// Form inputs arrive as strings; Prisma needs numbers/dates for these columns.
+function normalize(data: Record<string, any>) {
+  const out = { ...data };
+  for (const k of ['age', 'weight', 'height']) {
+    if (out[k] === '' || out[k] === null) out[k] = null;
+    else if (out[k] !== undefined) {
+      const n = Number(out[k]);
+      out[k] = Number.isFinite(n) ? (k === 'age' ? Math.round(n) : n) : null;
+    }
+  }
+  if (out.dateOfBirth === '') out.dateOfBirth = null;
+  else if (out.dateOfBirth) out.dateOfBirth = new Date(out.dateOfBirth);
+  return out;
 }
