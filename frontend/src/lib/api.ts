@@ -64,6 +64,10 @@ export const clinicAPI = {
   updateSettings: (data: any) => api.patch('/clinic/settings', data),
   getDashboard: () => api.get('/clinic/dashboard'),
   getDoctors: () => api.get('/clinic/doctors'),
+  join: (code: string) => api.post('/clinic/join', { code }),
+  getStaff: () => api.get('/clinic/staff'),
+  removeStaff: (id: string) => api.delete(`/clinic/staff/${id}`),
+  regenerateJoinCode: () => api.post('/clinic/join-code/regenerate'),
 };
 
 // ─── Patients API ──────────────────────────────────────────────
@@ -78,8 +82,9 @@ export const patientsAPI = {
 
 // ─── Medicines API ─────────────────────────────────────────────
 export const medicinesAPI = {
-  search: (query: string) => api.get('/medicines', { params: { q: query } }),
-  getAll: () => api.get('/medicines'),
+  search: (query: string, limit = 20) => api.get('/medicines', { params: { q: query, limit } }),
+  directory: (params: { q?: string; form?: string; page?: number; limit?: number }) => api.get('/medicines/directory', { params }),
+  forms: () => api.get('/medicines/forms'),
   create: (data: any) => api.post('/medicines', data),
   update: (id: string, data: any) => api.patch(`/medicines/${id}`, data),
   delete: (id: string) => api.delete(`/medicines/${id}`),

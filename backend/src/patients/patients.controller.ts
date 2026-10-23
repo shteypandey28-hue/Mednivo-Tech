@@ -24,17 +24,17 @@ export class PatientsController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.patientsService.findOne(id);
+  findOne(@Param('id') id: string, @CurrentUser('clinicId') clinicId: string) {
+    return this.patientsService.findOne(id, clinicId);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updatePatientDto: any) {
-    return this.patientsService.update(id, updatePatientDto);
+  update(@Param('id') id: string, @Body() updatePatientDto: any, @CurrentUser('clinicId') clinicId: string) {
+    return this.patientsService.update(id, updatePatientDto, clinicId);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.patientsService.remove(id);
+  remove(@Param('id') id: string, @CurrentUser('clinicId') clinicId: string) {
+    return this.patientsService.remove(id, clinicId);
   }
 }

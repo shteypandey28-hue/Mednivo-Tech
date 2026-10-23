@@ -2,3 +2,9 @@ node_modules
 dist
 .env
 .DS_Store
+
+# Generated / local-only
+seed_medicines.sql
+*.log
+backend/prisma/dev.db
+backend/public/uploads/

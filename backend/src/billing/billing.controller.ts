@@ -24,8 +24,8 @@ export class BillingController {
   }
 
   @Get('invoices/:id')
-  getInvoice(@Param('id') id: string) {
-    return this.billingService.getInvoice(id);
+  getInvoice(@Param('id') id: string, @CurrentUser('clinicId') clinicId: string) {
+    return this.billingService.getInvoice(id, clinicId);
   }
 
   // ─── Payments ──────────────────────────────────────────────────
@@ -49,8 +49,8 @@ export class BillingController {
   }
 
   @Get('receipts/:id')
-  getReceipt(@Param('id') id: string) {
-    return this.billingService.getReceipt(id);
+  getReceipt(@Param('id') id: string, @CurrentUser('clinicId') clinicId: string) {
+    return this.billingService.getReceipt(id, clinicId);
   }
 
   // ─── Financial Summary ─────────────────────────────────────────

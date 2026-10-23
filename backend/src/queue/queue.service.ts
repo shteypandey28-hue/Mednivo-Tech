@@ -1,12 +1,21 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { QueueStatus } from '@prisma/client';
+import { PUBLIC_USER, assertDoctorInClinic, assertPatientInClinic, requireClinic } from '../common/tenant';
 
 @Injectable()
 export class QueueService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async addToQueue(data: { clinicId: string; patientId: string; doctorId: string; appointmentId?: string }) {
+  async addToQueue(input: { clinicId: string; patientId: string; doctorId: string; appointmentId?: string }) {
+    const clinicId = requireClinic(input.clinicId);
+    await assertPatientInClinic(this.prisma, input.patientId, clinicId);
+    await assertDoctorInClinic(this.prisma, input.doctorId, clinicId);
+    if (input.appointmentId) {
+      const appt = await this.prisma.appointment.findFirst({ where: { id: input.appointmentId, clinicId }, select: { id: true } });
+      if (!appt) throw new NotFoundException('Appointment not found');
+    }
+    const data = { clinicId, patientId: input.patientId, doctorId: input.doctorId, appointmentId: input.appointmentId };
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -21,7 +30,7 @@ export class QueueService {
 
     return this.prisma.queueEntry.create({
       data: { ...data, position, tokenNumber },
-      include: { patient: true, doctor: true },
+      include: { patient: true, doctor: PUBLIC_USER },
     });
   }
 
@@ -29,7 +38,7 @@ export class QueueService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const where: any = { clinicId, createdAt: { gte: today } };
+    const where: any = { clinicId: requireClinic(clinicId), createdAt: { gte: today } };
     if (doctorId) where.doctorId = doctorId;
 
     return this.prisma.queueEntry.findMany({
@@ -43,8 +52,8 @@ export class QueueService {
     });
   }
 
-  async updateStatus(id: string, status: QueueStatus) {
-    const entry = await this.prisma.queueEntry.findUnique({ where: { id } });
+  async updateStatus(id: string, status: QueueStatus, clinicId: string) {
+    const entry = await this.prisma.queueEntry.findFirst({ where: { id, clinicId: requireClinic(clinicId) } });
     if (!entry) throw new NotFoundException('Queue entry not found');
 
     const updateData: any = { status };
@@ -54,7 +63,7 @@ export class QueueService {
     return this.prisma.queueEntry.update({
       where: { id },
       data: updateData,
-      include: { patient: true, doctor: true },
+      include: { patient: true, doctor: PUBLIC_USER },
     });
   }
 
@@ -73,11 +82,13 @@ export class QueueService {
     return this.prisma.queueEntry.update({
       where: { id: nextEntry.id },
       data: { status: 'IN_CONSULTATION', calledAt: new Date() },
-      include: { patient: true, doctor: true },
+      include: { patient: true, doctor: PUBLIC_USER },
     });
   }
 
-  async reorder(id: string, newPosition: number) {
+  async reorder(id: string, newPosition: number, clinicId: string) {
+    const entry = await this.prisma.queueEntry.findFirst({ where: { id, clinicId: requireClinic(clinicId) }, select: { id: true } });
+    if (!entry) throw new NotFoundException('Queue entry not found');
     return this.prisma.queueEntry.update({
       where: { id },
       data: { position: newPosition },

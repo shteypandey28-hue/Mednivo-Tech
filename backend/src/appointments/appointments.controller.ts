@@ -10,7 +10,7 @@ export class AppointmentsController {
 
   @Post()
   create(@CurrentUser('clinicId') clinicId: string, @Body() data: any) {
-    return this.appointmentsService.create({ ...data, clinicId });
+    return this.appointmentsService.create(data, clinicId);
   }
 
   @Get()
@@ -34,17 +34,17 @@ export class AppointmentsController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.appointmentsService.findOne(id);
+  findOne(@Param('id') id: string, @CurrentUser('clinicId') clinicId: string) {
+    return this.appointmentsService.findOne(id, clinicId);
   }
 
   @Patch(':id/status')
-  updateStatus(@Param('id') id: string, @Body() body: { status: any; cancelReason?: string }) {
-    return this.appointmentsService.updateStatus(id, body.status, body.cancelReason);
+  updateStatus(@Param('id') id: string, @Body() body: { status: any; cancelReason?: string }, @CurrentUser('clinicId') clinicId: string) {
+    return this.appointmentsService.updateStatus(id, body.status, body.cancelReason, clinicId);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.appointmentsService.remove(id);
+  remove(@Param('id') id: string, @CurrentUser('clinicId') clinicId: string) {
+    return this.appointmentsService.remove(id, clinicId);
   }
 }

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/store/authStore';
-import { authAPI } from '@/lib/api';
+import { authAPI, clinicAPI } from '@/lib/api';
 import { Stethoscope, Briefcase, ArrowRight, Loader2, ChevronDown, Sparkles } from 'lucide-react';
 
 const TITLES = ['Mr.', 'Ms.', 'Mrs.', 'Mx.', 'Shri', 'Smt.'];
@@ -14,7 +14,9 @@ export function OnboardingModal() {
   const rawName = (user?.name || '').replace(/^(Dr\.|Mr\.|Ms\.|Mrs\.|Mx\.|Shri|Smt\.)\s*/i, '');
 
   const [firstName, setFirstName] = useState(rawName);
-  const [role, setRole] = useState<'DOCTOR' | 'RECEPTIONIST'>('DOCTOR');
+  const [role, setRole] = useState<'DOCTOR' | 'RECEPTIONIST'>(user?.role === 'RECEPTIONIST' ? 'RECEPTIONIST' : 'DOCTOR');
+  const [clinicCode, setClinicCode] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const [title, setTitle] = useState('Mr.');
   const [isLoading, setIsLoading] = useState(false);
   const [titleOpen, setTitleOpen] = useState(false);
@@ -29,16 +31,35 @@ export function OnboardingModal() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!firstName.trim()) return;
+    if (role === 'RECEPTIONIST' && !clinicCode.trim()) {
+      setError('Enter the clinic code your doctor shared with you.');
+      return;
+    }
 
     setIsLoading(true);
+    setError(null);
     try {
-      const response = await authAPI.updateProfile({ name: displayName, role, isOnboarded: true });
+      // Receptionists join their doctor's clinic first; only then is their profile finalised.
+      let clinicId: string | undefined;
+      if (role === 'RECEPTIONIST') {
+        try {
+          const { data } = await clinicAPI.join(clinicCode.trim());
+          clinicId = data.clinicId;
+        } catch (err: any) {
+          setError(err?.response?.data?.message || "That clinic code didn't work. Please check it and try again.");
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      await authAPI.updateProfile({ name: displayName, role, isOnboarded: true });
 
       // Update the local Zustand store so localStorage knows we are onboarded
-      useAuthStore.getState().updateUser({ 
-        name: displayName, 
-        role, 
-        isOnboarded: true 
+      useAuthStore.getState().updateUser({
+        name: displayName,
+        role,
+        isOnboarded: true,
+        ...(clinicId ? { clinicId } : {}),
       });
 
       // Redirect immediately — full page reload ensures fresh state
@@ -51,7 +72,7 @@ export function OnboardingModal() {
       console.error('Failed to complete onboarding:', error);
       // If it's a network error but the update might have gone through, still try to redirect
       if (error?.response?.status !== 401) {
-        alert('Something went wrong. Please try again.');
+        setError(error?.response?.data?.message || 'Something went wrong. Please try again.');
       }
       setIsLoading(false);
     }
@@ -193,6 +214,25 @@ export function OnboardingModal() {
                 </motion.p>
               )}
             </div>
+
+            {role === 'RECEPTIONIST' && (
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2.5">Clinic code</label>
+                <input
+                  type="text"
+                  value={clinicCode}
+                  onChange={(e) => setClinicCode(e.target.value.toUpperCase())}
+                  maxLength={12}
+                  className="w-full h-12 px-4 bg-white border-2 border-slate-200 rounded-xl text-sm text-slate-800 font-mono font-semibold tracking-[0.2em] uppercase focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all placeholder:text-slate-400 placeholder:font-sans placeholder:font-normal placeholder:tracking-normal"
+                  placeholder="e.g. PW9U3N8L"
+                />
+                <p className="mt-2 text-xs text-slate-500">Ask your doctor — it's in their Settings → Team.</p>
+              </div>
+            )}
+
+            {error && (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">{error}</p>
+            )}
 
             {/* Submit */}
             <button

@@ -1,14 +1,16 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Save, Printer, UserPlus, Pill, Beaker, FileText, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Save, Printer, UserPlus, Pill, Beaker, FileText, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MedicineAutocomplete } from "@/components/MedicineAutocomplete";
 import { MedicineList } from "@/components/MedicineList";
 import { PrescriptionPreview, AutoScaledPreview } from "@/components/PrescriptionPreview";
 import { usePrescriptionStore } from "@/store/prescriptionStore";
-import api from "@/lib/api";
+import api, { patientsAPI, prescriptionsAPI } from "@/lib/api";
+import { PatientPicker } from "@/components/PatientPicker";
+import { openPrescriptionPdf } from "@/lib/pdf";
 
 export function CreatePrescription() {
   const navigate = useNavigate();
@@ -16,13 +18,18 @@ export function CreatePrescription() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [isEditingLayout, setIsEditingLayout] = useState(false);
   const [template, setTemplate] = useState<any>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [savedId, setSavedId] = useState<string | null>(null);
 
-  const { 
+  const {
     patient, setPatient,
-    medicines, addMedicine, removeMedicine, updateMedicine,
+    medicines,
     diagnosis, setDiagnosis,
+    advice, setAdvice,
     notes, setNotes,
-    reset 
+    consultationId,
+    resetPrescription,
   } = usePrescriptionStore();
 
   useEffect(() => {
@@ -52,13 +59,90 @@ export function CreatePrescription() {
     }
   };
 
-  const handleSave = () => {
+  // Registers a new patient if needed, then saves the prescription. Returns its id.
+  const savePrescription = async (): Promise<string | null> => {
+    setSaveError(null);
+    if (!patient.id && !patient.name.trim()) {
+      setSaveError("Select or enter the patient first.");
+      setActiveTab('edit');
+      return null;
+    }
+    if (medicines.length === 0) {
+      setSaveError("Add at least one medicine.");
+      setActiveTab('edit');
+      return null;
+    }
+    setSaving(true);
+    try {
+      let patientId = patient.id;
+      if (!patientId) {
+        const { data } = await patientsAPI.create({
+          name: patient.name.trim(),
+          age: patient.age === '' ? undefined : patient.age,
+          gender: (patient.gender || 'Male').toUpperCase(),
+          phone: patient.phone || undefined,
+          weight: patient.weight || undefined,
+        });
+        patientId = data.id;
+        setPatient({ id: data.id, patientUHID: data.patientUHID });
+      }
+      const payload = {
+        diagnosis: diagnosis || undefined,
+        advice: advice || undefined,
+        notes: notes || undefined,
+        items: medicines.map((m) => ({
+          // Only catalogue ids are UUIDs; locally-added rows get random ids.
+          medicineId: /^[0-9a-f-]{36}$/i.test(m.sourceId || m.id) ? (m.sourceId || m.id) : undefined,
+          medicineName: m.name,
+          genericName: m.genericName || m.composition,
+          strength: m.strength,
+          form: m.dosageForm,
+          route: m.route,
+          dosage: m.dosage,
+          frequency: m.frequency,
+          duration: m.duration,
+          instruction: m.instruction,
+        })),
+      };
+      // Already saved (e.g. printed first): update it instead of creating a duplicate.
+      if (savedId) {
+        await prescriptionsAPI.update(savedId, payload);
+        return savedId;
+      }
+      const { data } = await prescriptionsAPI.create({ ...payload, patientId, consultationId });
+      setSavedId(data.id);
+      return data.id;
+    } catch (e: any) {
+      console.error("Failed to save prescription", e);
+      const msg = e?.response?.data?.message;
+      setSaveError(Array.isArray(msg) ? msg[0] : msg || "Couldn't save the prescription. Please try again.");
+      return null;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSave = async () => {
+    const id = await savePrescription();
+    if (!id) return;
     setShowSuccess(true);
     setTimeout(() => {
       setShowSuccess(false);
       resetPrescription();
       navigate('/app/prescriptions');
-    }, 2000);
+    }, 1500);
+  };
+
+  // Saves first (a printed prescription must exist in the record), then opens the PDF.
+  const handlePrint = async () => {
+    const id = await savePrescription();
+    if (!id) return;
+    try {
+      await openPrescriptionPdf(id);
+    } catch (e) {
+      console.error("Failed to open PDF", e);
+      setSaveError("Saved, but the PDF couldn't be generated.");
+    }
   };
 
   return (
@@ -114,29 +198,7 @@ export function CreatePrescription() {
                 <div className="p-6 space-y-6">
                   <div>
                     <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2"><UserPlus className="w-4 h-4 text-emerald-600" /> Patient Details</h3>
-                    <div className="space-y-3">
-                      <Input 
-                        placeholder="Patient Name" 
-                        onChange={(e) => setPatient({ name: e.target.value })}
-                        className="h-11 bg-slate-50"
-                      />
-                      <div className="grid grid-cols-2 gap-3">
-                        <Input 
-                          placeholder="Age (e.g. 32)" 
-                          onChange={(e) => setPatient({ age: e.target.value })}
-                          className="h-11 bg-slate-50"
-                        />
-                        <select 
-                          className="flex h-11 w-full rounded-md border border-input bg-slate-50 px-3 py-2 text-sm text-slate-600"
-                          onChange={(e) => setPatient({ gender: e.target.value })}
-                        >
-                          <option value="">Gender</option>
-                          <option value="Male">Male</option>
-                          <option value="Female">Female</option>
-                          <option value="Other">Other</option>
-                        </select>
-                      </div>
-                    </div>
+                    <PatientPicker />
                   </div>
                   
                   <hr className="border-slate-100" />
@@ -145,6 +207,7 @@ export function CreatePrescription() {
                     <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2"><Beaker className="w-4 h-4 text-emerald-600" /> Diagnosis</h3>
                     <Input 
                       placeholder="e.g. Viral Fever, Hypertension..." 
+                      value={diagnosis}
                       onChange={(e) => setDiagnosis(e.target.value)}
                       className="h-11 bg-slate-50"
                     />
@@ -158,11 +221,13 @@ export function CreatePrescription() {
                       <textarea 
                         className="w-full h-24 p-3 bg-slate-50 border border-input rounded-md text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 resize-none"
                         placeholder="General advice..."
-                        onChange={(e) => setNotes(e.target.value)}
+                        value={advice}
+                        onChange={(e) => setAdvice(e.target.value)}
                       ></textarea>
                       <textarea 
                         className="w-full h-24 p-3 bg-slate-50 border border-input rounded-md text-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 resize-none"
                         placeholder="Clinical notes (optional)..."
+                        value={notes}
                         onChange={(e) => setNotes(e.target.value)}
                       ></textarea>
                     </div>
@@ -176,6 +241,7 @@ export function CreatePrescription() {
                   <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2"><Pill className="w-4 h-4 text-emerald-600" /> Prescribe Medicines</h3>
                   <MedicineAutocomplete 
                     value=""
+                    clearOnSelect
                     onChange={(val, med) => {
                       if (med) {
                         let defaultDosage = med.strength || '1';
@@ -221,7 +287,7 @@ export function CreatePrescription() {
                   <MedicineList />
                 </div>
                 <div className="p-4 border-t border-slate-100 bg-white flex justify-end gap-3">
-                  <Button variant="outline">Clear All</Button>
+                  <Button variant="outline" onClick={() => usePrescriptionStore.setState({ medicines: [] })}>Clear All</Button>
                   <Button onClick={() => setActiveTab('preview')} className="bg-slate-900 text-white hover:bg-slate-800">
                     Preview Prescription
                   </Button>
@@ -278,11 +344,14 @@ export function CreatePrescription() {
                   </div>
                 )}
                 
-                <Button onClick={handleSave} className="w-full h-12 bg-gradient-to-r from-emerald-600 to-teal-600 text-white gap-2 text-base shadow-md hover:shadow-lg transition-all" disabled={isEditingLayout}>
-                  <Save className="w-5 h-5" /> Save Prescription
+                {saveError && (
+                  <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{saveError}</p>
+                )}
+                <Button onClick={handleSave} className="w-full h-12 bg-gradient-to-r from-emerald-600 to-teal-600 text-white gap-2 text-base shadow-md hover:shadow-lg transition-all" disabled={isEditingLayout || saving}>
+                  {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />} {savedId ? 'Saved — Done' : 'Save Prescription'}
                 </Button>
-                <Button variant="outline" className="w-full h-12 gap-2 text-slate-700 bg-slate-50 hover:bg-slate-100">
-                  <Printer className="w-5 h-5" /> Print
+                <Button onClick={handlePrint} disabled={isEditingLayout || saving} variant="outline" className="w-full h-12 gap-2 text-slate-700 bg-slate-50 hover:bg-slate-100">
+                  <Printer className="w-5 h-5" /> Save & Print PDF
                 </Button>
                 
                 <hr className="my-2 border-slate-100" />

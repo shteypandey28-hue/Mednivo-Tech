@@ -1,9 +1,16 @@
-import { Injectable, ConflictException, UnauthorizedException, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, UnauthorizedException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { PrismaService } from '../prisma/prisma.service';
-import { RegisterDto, LoginDto } from './dto/auth.dto';
+import { RegisterDto, LoginDto, UpdateProfileDto } from './dto/auth.dto';
+import { pick } from '../common/tenant';
+import { generateJoinCode } from '../clinic/join-code';
+
+const PROFILE_FIELDS = [
+  'name', 'role', 'isOnboarded', 'phone', 'avatar', 'specialty', 'qualification',
+  'registrationNumber', 'signature', 'consultationFee', 'bio',
+] as const;
 
 @Injectable()
 export class AuthService {
@@ -24,16 +31,8 @@ export class AuthService {
     // Hash password
     const passwordHash = await bcrypt.hash(dto.password, 12);
 
-    // Create or find default clinic
-    let clinic = await this.prisma.clinic.findFirst();
-    if (!clinic) {
-      clinic = await this.prisma.clinic.create({
-        data: {
-          name: 'My Clinic',
-          clinicSettings: { create: {} },
-        },
-      });
-    }
+    // Every sign-up gets its own clinic; staff join an existing one with its join code.
+    const clinic = await this.createClinicFor(dto.name);
 
     // Create user
     const user = await this.prisma.user.create({
@@ -155,8 +154,20 @@ export class AuthService {
     return profile;
   }
 
-  async updateProfile(userId: string, data: any) {
-    const { passwordHash, resetToken, resetTokenExpiry, ...updateData } = data;
+  async updateProfile(userId: string, data: UpdateProfileDto) {
+    const updateData = pick(data, PROFILE_FIELDS);
+
+    // Role is chosen during onboarding, while the user is alone in their own clinic.
+    // Once they share a clinic, changing role would let staff grant themselves doctor access.
+    if (updateData.role) {
+      const me = await this.prisma.user.findUnique({ where: { id: userId }, select: { role: true, clinicId: true } });
+      if (me && me.role !== updateData.role) {
+        const others = me.clinicId
+          ? await this.prisma.user.count({ where: { clinicId: me.clinicId, id: { not: userId }, isActive: true } })
+          : 0;
+        if (others > 0) throw new ForbiddenException('Role can only be changed by the clinic owner');
+      }
+    }
 
     const user = await this.prisma.user.update({
       where: { id: userId },
@@ -210,8 +221,9 @@ export class AuthService {
       data: { resetToken, resetTokenExpiry },
     });
 
-    // In production, send email here
-    return { message: 'If the email exists, a reset link will be sent.', resetToken };
+    // TODO: email the reset link. The token must never be returned in the response,
+    // otherwise anyone who knows an email address can take over that account.
+    return { message: 'If the email exists, a reset link will be sent.' };
   }
 
   async resetPassword(token: string, newPassword: string) {
@@ -260,15 +272,7 @@ export class AuthService {
       // Create user if they don't exist
       const passwordHash = await bcrypt.hash(uuidv4(), 12); // random password
       
-      let clinic = await this.prisma.clinic.findFirst();
-      if (!clinic) {
-        clinic = await this.prisma.clinic.create({
-          data: {
-            name: 'My Clinic',
-            clinicSettings: { create: {} },
-          },
-        });
-      }
+      const clinic = await this.createClinicFor(`${firstName} ${lastName}`);
 
       user = await this.prisma.user.create({
         data: {
@@ -303,6 +307,16 @@ export class AuthService {
       },
       ...tokens,
     };
+  }
+
+  private createClinicFor(ownerName: string) {
+    return this.prisma.clinic.create({
+      data: {
+        name: ownerName ? `${ownerName}'s Clinic` : 'My Clinic',
+        joinCode: generateJoinCode(),
+        clinicSettings: { create: {} },
+      },
+    });
   }
 
   private generateTokens(userId: string, email: string, role: string) {

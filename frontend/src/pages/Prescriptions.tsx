@@ -1,28 +1,65 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Plus, Search, FileText, Download, Printer, Filter } from "lucide-react";
+import { Plus, Search, FileText, Download, Printer, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { prescriptionsAPI } from "@/lib/api";
+import { openPrescriptionPdf } from "@/lib/pdf";
 
 const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.04 } } };
 const item = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0 } };
 
-const prescriptions = [
-  { id: 'RX-000124', date: 'Today, 10:45 AM', patient: 'Rahul Sharma', diagnosis: 'Viral Fever', items: 4 },
-  { id: 'RX-000123', date: 'Today, 09:30 AM', patient: 'Priya Singh', diagnosis: 'Migraine', items: 2 },
-  { id: 'RX-000122', date: 'Yesterday', patient: 'Amit Kumar', diagnosis: 'Hypertension', items: 3 },
-  { id: 'RX-000121', date: 'Yesterday', patient: 'Sunita Devi', diagnosis: 'Type 2 Diabetes', items: 5 },
-  { id: 'RX-000120', date: 'Sep 5, 2026', patient: 'Vikram Patel', diagnosis: 'Acid Reflux', items: 2 },
-];
+type Row = { id: string; rxId: string; patient: string; diagnosis: string; date: string; items: number };
+
+function formatDate(iso: string) {
+  const d = new Date(iso);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  const time = d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
+  if (d.toDateString() === today.toDateString()) return `Today, ${time}`;
+  if (d.toDateString() === yesterday.toDateString()) return `Yesterday, ${time}`;
+  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+}
 
 export function Prescriptions() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [rows, setRows] = useState<Row[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
-  const filtered = prescriptions.filter(rx => 
-    rx.patient.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    rx.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    rx.diagnosis.toLowerCase().includes(searchTerm.toLowerCase())
+  useEffect(() => {
+    prescriptionsAPI.getAll()
+      .then(({ data }) => setRows(data.map((rx: any) => ({
+        id: rx.id,
+        rxId: rx.prescriptionId,
+        patient: rx.patient?.name || "Unknown patient",
+        diagnosis: rx.diagnosis || "No diagnosis",
+        date: formatDate(rx.date || rx.createdAt),
+        items: rx.items?.length || 0,
+      }))))
+      .catch(() => setError("Couldn't load prescriptions."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const pdf = async (rx: Row, download: boolean) => {
+    setBusyId(rx.id);
+    try {
+      await openPrescriptionPdf(rx.id, download ? { download: `${rx.rxId}.pdf` } : {});
+    } catch {
+      setError("Couldn't generate the PDF.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const q = searchTerm.toLowerCase();
+  const filtered = rows.filter(rx =>
+    rx.patient.toLowerCase().includes(q) ||
+    rx.rxId.toLowerCase().includes(q) ||
+    rx.diagnosis.toLowerCase().includes(q)
   );
 
   return (
@@ -50,11 +87,14 @@ export function Prescriptions() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <Button variant="outline" className="h-11 gap-2 bg-white"><Filter className="w-4 h-4" /> Filter</Button>
         </div>
 
         <div className="divide-y divide-slate-100">
-          {filtered.map((rx, idx) => (
+          {loading && (
+            <div className="flex justify-center py-16"><Loader2 className="w-8 h-8 animate-spin text-emerald-500" /></div>
+          )}
+          {error && <p className="px-5 py-3 text-sm text-red-600 bg-red-50">{error}</p>}
+          {!loading && filtered.map((rx) => (
             <div key={rx.id} className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50 transition-colors group">
               <div className="flex items-center gap-5">
                 <div className="w-12 h-12 bg-emerald-50 rounded-xl border border-emerald-100 flex items-center justify-center text-emerald-600 flex-shrink-0">
@@ -63,7 +103,7 @@ export function Prescriptions() {
                 <div>
                   <h4 className="font-semibold text-slate-900 text-base">{rx.patient}</h4>
                   <div className="flex items-center gap-3 text-sm mt-1">
-                    <span className="font-mono text-emerald-600 font-medium">{rx.id}</span>
+                    <span className="font-mono text-emerald-600 font-medium">{rx.rxId}</span>
                     <span className="text-slate-300">•</span>
                     <span className="text-slate-600 font-medium">{rx.diagnosis}</span>
                     <span className="text-slate-300">•</span>
@@ -77,21 +117,21 @@ export function Prescriptions() {
                   {rx.items} {rx.items === 1 ? 'medicine' : 'medicines'}
                 </div>
                 <div className="flex items-center gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                  <button className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors tooltip-trigger">
-                    <Printer className="w-5 h-5" />
+                  <button onClick={() => pdf(rx, false)} disabled={busyId === rx.id} title="Print" className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                    {busyId === rx.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <Printer className="w-5 h-5" />}
                   </button>
-                  <button className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
+                  <button onClick={() => pdf(rx, true)} disabled={busyId === rx.id} title="Download PDF" className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors">
                     <Download className="w-5 h-5" />
                   </button>
                 </div>
               </div>
             </div>
           ))}
-          {filtered.length === 0 && (
+          {!loading && filtered.length === 0 && (
              <div className="text-center py-16">
               <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-slate-900">No prescriptions found</h3>
-              <p className="text-sm text-slate-500 mt-1">Try a different search term or create a new one.</p>
+              <p className="text-sm text-slate-500 mt-1">{rows.length ? "Try a different search term." : "Prescriptions you save will appear here."}</p>
             </div>
           )}
         </div>

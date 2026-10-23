@@ -2,6 +2,7 @@ import { Controller, Post, Body, Get, Param, UseGuards, UseInterceptors, Uploade
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AiService } from './ai.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 @Controller('ai')
 @UseGuards(JwtAuthGuard)
@@ -14,12 +15,12 @@ export class AiController {
   }
 
   @Get('summarize/:patientId')
-  summarizePatientHistory(@Param('patientId') patientId: string) {
-    return this.aiService.summarizePatientHistory(patientId);
+  summarizePatientHistory(@Param('patientId') patientId: string, @CurrentUser('clinicId') clinicId: string) {
+    return this.aiService.summarizePatientHistory(patientId, clinicId);
   }
 
   @Post('prescription-pad')
-  @UseInterceptors(FileInterceptor('image'))
+  @UseInterceptors(FileInterceptor('image', { limits: { fileSize: 5 * 1024 * 1024 } }))
   async analyzePrescriptionPad(@UploadedFile() file: Express.Multer.File) {
     return this.aiService.analyzePrescriptionPad(file);
   }

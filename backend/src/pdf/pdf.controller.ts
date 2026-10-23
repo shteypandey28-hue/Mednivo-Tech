@@ -1,4 +1,6 @@
 import { Controller, Get, Param, Res, UseGuards, NotFoundException } from '@nestjs/common';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { requireClinic } from '../common/tenant';
 import { PdfService } from './pdf.service';
 import type { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -13,9 +15,9 @@ export class PdfController {
   ) {}
 
   @Get('prescription/:id')
-  async downloadPrescription(@Param('id') id: string, @Res() res: Response) {
-    const prescription = await this.prisma.prescription.findUnique({
-      where: { id },
+  async downloadPrescription(@Param('id') id: string, @CurrentUser('clinicId') clinicId: string, @Res() res: Response) {
+    const prescription = await this.prisma.prescription.findFirst({
+      where: { id, clinicId: requireClinic(clinicId) },
       include: {
         patient: true,
         items: {
@@ -34,7 +36,7 @@ export class PdfController {
       patient: prescription.patient,
       advice: prescription.advice,
       medicines: prescription.items.map(item => ({
-        name: item.medicine?.name || 'Unknown',
+        name: item.medicineName || item.medicine?.name || 'Unknown',
         dosage: item.dosage,
         frequency: item.frequency,
         duration: item.duration,

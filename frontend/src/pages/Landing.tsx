@@ -2,9 +2,10 @@ import { Link } from "react-router-dom";
 import { motion, useScroll, useTransform, useInView, animate } from "framer-motion";
 import { Logo } from "@/components/Logo";
 import {
-  Stethoscope, CalendarDays, Receipt, Microscope, ChevronRight,
-  Activity, Users, Shield, Zap, ArrowRight, CheckCircle2, Sparkles,
-  HeartPulse, ClipboardList, Star, Headphones, Building2, UserCheck, Clock, TrendingUp
+  Stethoscope, CalendarDays, Receipt, ChevronRight,
+  Activity, Users, Shield, ArrowRight, CheckCircle2, Sparkles,
+  HeartPulse, ClipboardList, Star, Headphones, Building2, UserCheck, Clock, TrendingUp,
+  Search, Upload, FileText, Lock, Mic, IndianRupee, MonitorSmartphone
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRef, useEffect, useState } from "react";
@@ -77,12 +78,57 @@ function AnimatedCounter({ target, decimals = 0, duration = 2 }: { target: numbe
   return <span ref={ref}>{display}</span>;
 }
 
-const statData = [
-  { value: 500, decimals: 0, suffix: "+", label: "Active Clinics", desc: "Across 120+ cities", color: "from-blue-600 to-cyan-500" },
-  { value: 1.2, decimals: 1, suffix: "M", label: "Patients Managed", desc: "Growing every day", color: "from-emerald-600 to-teal-500" },
-  { value: 99.9, decimals: 1, suffix: "%", label: "Uptime SLA", desc: "Enterprise reliability", color: "from-violet-600 to-purple-500" },
-  { value: 4.9, decimals: 1, suffix: "★", label: "Doctor Rating", desc: "12,000+ reviews", color: "from-amber-500 to-orange-500" },
+const statData: { value: number; decimals: number; prefix?: string; suffix: string; label: string; desc: string; color: string }[] = [
+  { value: 2.5, decimals: 1, suffix: " Lakh+", label: "Indian Medicines", desc: "Searchable as you prescribe", color: "from-blue-600 to-cyan-500" },
+  { value: 2, decimals: 0, suffix: " Roles", label: "One Workflow", desc: "Doctor & Receptionist", color: "from-emerald-600 to-teal-500" },
+  { value: 3, decimals: 0, suffix: " Ways", label: "To Get Paid", desc: "UPI · Card · Cash", color: "from-violet-600 to-purple-500" },
+  { value: 0, decimals: 0, prefix: "₹", suffix: "", label: "For Solo Doctors", desc: "No credit card needed", color: "from-amber-500 to-orange-500" },
 ];
+
+/* ─── Feature Card ───────────────────────────────────────────── */
+const TINTS = {
+  blue: { iconBg: "bg-blue-50 group-hover:bg-blue-100", icon: "text-blue-600", hover: "hover:border-blue-200/70 hover:shadow-blue-100/50", wash: "group-hover:from-blue-50/50" },
+  emerald: { iconBg: "bg-emerald-50 group-hover:bg-emerald-100", icon: "text-emerald-600", hover: "hover:border-emerald-200/70 hover:shadow-emerald-100/50", wash: "group-hover:from-emerald-50/50" },
+  teal: { iconBg: "bg-teal-50 group-hover:bg-teal-100", icon: "text-teal-600", hover: "hover:border-teal-200/70 hover:shadow-teal-100/50", wash: "group-hover:from-teal-50/50" },
+  amber: { iconBg: "bg-amber-50 group-hover:bg-amber-100", icon: "text-amber-600", hover: "hover:border-amber-200/70 hover:shadow-amber-100/50", wash: "group-hover:from-amber-50/50" },
+  orange: { iconBg: "bg-orange-50 group-hover:bg-orange-100", icon: "text-orange-500", hover: "hover:border-orange-200/70 hover:shadow-orange-100/50", wash: "group-hover:from-orange-50/50" },
+  violet: { iconBg: "bg-violet-50 group-hover:bg-violet-100", icon: "text-violet-600", hover: "hover:border-violet-200/70 hover:shadow-violet-100/50", wash: "group-hover:from-violet-50/50" },
+};
+
+function FeatureCard({ tint, icon: Icon, title, desc, badge, className = "", children }: {
+  tint: (typeof TINTS)[keyof typeof TINTS];
+  icon: React.ElementType;
+  title: string;
+  desc: string;
+  badge?: string;
+  className?: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <motion.div
+      variants={fadeUp}
+      whileHover={{ y: -4, transition: { type: "spring", stiffness: 400, damping: 25 } }}
+      className={`group relative h-full bg-white rounded-2xl p-6 sm:p-7 border border-slate-100 shadow-sm hover:shadow-xl ${tint.hover} transition-[border-color,box-shadow] duration-300 cursor-default overflow-hidden ${className}`}
+    >
+      <div className={`absolute inset-0 bg-gradient-to-br from-transparent to-transparent ${tint.wash} transition-colors duration-500 pointer-events-none`} />
+      <div className="relative z-10 flex h-full flex-col">
+        <div className="flex items-start justify-between gap-3 mb-5">
+          <div className={`w-11 h-11 rounded-xl flex items-center justify-center transition-colors duration-300 ${tint.iconBg}`}>
+            <Icon className={`w-5 h-5 ${tint.icon}`} />
+          </div>
+          {badge && (
+            <span className="px-2.5 py-1 rounded-full bg-violet-50 border border-violet-100 text-[10px] font-semibold uppercase tracking-wider text-violet-600">
+              {badge}
+            </span>
+          )}
+        </div>
+        <h3 className="text-[15px] font-semibold text-slate-900 mb-1.5">{title}</h3>
+        <p className="text-slate-500 text-[13px] leading-relaxed mb-5">{desc}</p>
+        {children && <div className="mt-auto">{children}</div>}
+      </div>
+    </motion.div>
+  );
+}
 
 /* ─── Landing Page ───────────────────────────────────────────── */
 export function Landing() {
@@ -90,15 +136,6 @@ export function Landing() {
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
   const heroY = useTransform(scrollYProgress, [0, 1], [0, 150]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
-
-  const features = [
-    { icon: Users, title: "Smart Queue Management", desc: "Live token tracking, wait time estimation, and seamless check-ins for your front desk.", gradient: "from-blue-500 via-sky-400 to-cyan-400", glow: "shadow-blue-500/30", num: "01", bgTint: "bg-blue-50/80", borderTint: "border-blue-200/60" },
-    { icon: Stethoscope, title: "Lightning Fast EMR", desc: "Write clinical notes in seconds with auto-complete and specialty-specific templates.", gradient: "from-emerald-500 via-green-400 to-teal-400", glow: "shadow-emerald-500/30", num: "02", bgTint: "bg-emerald-50/80", borderTint: "border-emerald-200/60" },
-    { icon: Zap, title: "AI Voice-to-Notes", desc: "Speak naturally to the patient, and let AI draft the clinical notes for your review.", gradient: "from-violet-500 via-purple-400 to-fuchsia-400", glow: "shadow-violet-500/30", num: "03", bgTint: "bg-violet-50/80", borderTint: "border-violet-200/60" },
-    { icon: Receipt, title: "Integrated Billing", desc: "Generate invoices, collect UPI/Card payments via Razorpay, and print receipts instantly.", gradient: "from-amber-500 via-orange-400 to-yellow-400", glow: "shadow-amber-500/30", num: "04", bgTint: "bg-amber-50/80", borderTint: "border-amber-200/60" },
-    { icon: Microscope, title: "Prescription Designer", desc: "Beautiful PDF prescriptions with your logo, digital signature, and verification QR code.", gradient: "from-teal-500 via-cyan-400 to-blue-400", glow: "shadow-teal-500/30", num: "05", bgTint: "bg-teal-50/80", borderTint: "border-teal-200/60" },
-    { icon: Shield, title: "Bank-Grade Security", desc: "Role-based access control, JWT authentication, and daily automated encrypted backups.", gradient: "from-indigo-500 via-blue-400 to-sky-400", glow: "shadow-indigo-500/30", num: "06", bgTint: "bg-indigo-50/80", borderTint: "border-indigo-200/60" },
-  ];
 
   const steps = [
     { num: "01", title: "Register your clinic", desc: "Set up your clinic profile, add staff, and configure your workflow in under 5 minutes." },
@@ -416,7 +453,7 @@ export function Landing() {
       </section>
 
       {/* ═══ Stats Section ═══ */}
-      <section className="relative z-10 pt-16 pb-4 px-6 overflow-hidden">
+      <section className="relative z-10 pt-16 pb-4 px-4 sm:px-6 overflow-hidden">
         <div className="relative max-w-[1400px] mx-auto">
           {/* Glassmorphic Stats Banner */}
           <motion.div
@@ -424,12 +461,12 @@ export function Landing() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-60px" }}
             transition={{ duration: 0.8, type: "spring", stiffness: 100 }}
-            className="relative bg-white/50 backdrop-blur-xl rounded-[2.5rem] p-8 sm:p-12 border border-white/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden"
+            className="relative bg-white/50 backdrop-blur-xl rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-12 border border-white/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden"
           >
             {/* Subtle inner gradients for the glass effect */}
             <div className="absolute inset-0 bg-gradient-to-r from-blue-100/20 via-transparent to-emerald-100/20 pointer-events-none" />
             <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-white to-transparent opacity-90" />
-            
+
             <div className="relative grid grid-cols-2 md:grid-cols-4 gap-y-10 gap-x-4">
               {statData.map((stat, i) => (
                 <div key={stat.label} className="relative text-center group cursor-default">
@@ -450,8 +487,9 @@ export function Landing() {
                     transition={{ type: "spring", stiffness: 400 }}
                     className={`text-4xl sm:text-5xl lg:text-6xl font-extrabold bg-gradient-to-br ${stat.color} text-transparent bg-clip-text tracking-tight leading-none mb-3`}
                   >
+                    {stat.prefix && <span className="text-3xl sm:text-4xl lg:text-5xl">{stat.prefix}</span>}
                     <AnimatedCounter target={stat.value} decimals={stat.decimals} duration={2} />
-                    <span className="text-3xl sm:text-4xl lg:text-5xl">{stat.suffix}</span>
+                    <span className="text-2xl sm:text-3xl lg:text-4xl">{stat.suffix}</span>
                   </motion.div>
 
                   {/* Labels */}
@@ -465,7 +503,7 @@ export function Landing() {
       </section>
 
       {/* ═══ Bento Feature Grid ═══ */}
-      <section className="relative z-10 py-16 sm:py-20 px-6 overflow-hidden">
+      <section className="relative z-10 py-16 sm:py-20 px-4 sm:px-6 overflow-hidden">
         {/* Animated ambient blobs */}
         <motion.div
           animate={{ x: [0, 30, 0], y: [0, -20, 0] }}
@@ -477,11 +515,6 @@ export function Landing() {
           transition={{ duration: 16, repeat: Infinity, ease: "easeInOut", delay: 3 }}
           className="absolute bottom-[5%] right-[-5%] w-[450px] h-[450px] bg-amber-100/35 blur-[100px] rounded-full pointer-events-none"
         />
-        <motion.div
-          animate={{ scale: [1, 1.2, 1] }}
-          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 1.5 }}
-          className="absolute top-[45%] left-[45%] -translate-x-1/2 -translate-y-1/2 w-[350px] h-[350px] bg-emerald-50/30 blur-[100px] rounded-full pointer-events-none"
-        />
 
         <motion.div
           initial="hidden"
@@ -491,7 +524,7 @@ export function Landing() {
           className="max-w-[1400px] mx-auto"
         >
           {/* Section header */}
-          <motion.div variants={fadeUp} className="text-center mb-10">
+          <motion.div variants={fadeUp} className="text-center mb-10 sm:mb-12">
             <motion.span
               initial={{ width: 0 }}
               whileInView={{ width: "3rem" }}
@@ -502,167 +535,147 @@ export function Landing() {
             <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-slate-900 mb-5">
               Everything your clinic needs.
             </h2>
-            <p className="text-slate-500 max-w-2xl mx-auto text-lg leading-relaxed">
-              From queue to prescription — every workflow redesigned to be 10x faster and safer.
+            <p className="text-slate-500 max-w-2xl mx-auto text-base sm:text-lg leading-relaxed">
+              From the front desk to the prescription pad — queue, consult, prescribe and bill from one screen.
             </p>
           </motion.div>
 
-          {/* ── Premium Animated Feature Grid ── */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6">
 
-            {/* 1. Smart Queue — with live queue mockup */}
-            <motion.div
-              variants={fadeUp}
-              whileHover={{ y: -6, transition: { type: "spring", stiffness: 400, damping: 25 } }}
-              className="group bg-white rounded-2xl p-7 border border-slate-100 hover:border-blue-200/60 hover:shadow-xl hover:shadow-blue-100/40 transition-all duration-500 cursor-default overflow-hidden relative"
+            {/* 1. Smart Queue */}
+            <FeatureCard
+              tint={TINTS.blue}
+              icon={Users}
+              title="Smart Queue"
+              desc="Receptionist issues tokens, the doctor calls the next patient in one tap."
             >
-              {/* Hover gradient reveal */}
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-50/0 to-blue-50/0 group-hover:from-blue-50/40 group-hover:to-transparent transition-all duration-700 rounded-2xl" />
-              <div className="relative z-10">
-                <motion.div
-                  whileHover={{ rotate: -8 }}
-                  transition={{ type: "spring", stiffness: 500 }}
-                  className="w-11 h-11 bg-blue-50 rounded-xl flex items-center justify-center mb-5 group-hover:bg-blue-100 transition-colors duration-300"
-                >
-                  <Users className="w-5 h-5 text-blue-600" />
-                </motion.div>
-                <h3 className="text-[15px] font-semibold text-slate-900 mb-1.5">Smart Queue</h3>
-                <p className="text-slate-500 text-[13px] leading-relaxed mb-5">
-                  Live token tracking, real-time wait estimates, and frictionless check-ins.
-                </p>
-                {/* Mini live queue visualization */}
+              <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+                <div className="flex items-center justify-between mb-2.5">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Now serving</span>
+                  <span className="flex items-center gap-1 text-[10px] font-medium text-blue-600">
+                    <motion.span
+                      animate={{ opacity: [0.3, 1, 0.3] }}
+                      transition={{ duration: 1.8, repeat: Infinity }}
+                      className="w-1.5 h-1.5 bg-blue-500 rounded-full"
+                    />
+                    Live
+                  </span>
+                </div>
                 <div className="flex items-center gap-2">
                   {[
-                    { token: "T-12", status: "active" },
-                    { token: "T-13", status: "waiting" },
-                    { token: "T-14", status: "waiting" },
+                    { token: "T-12", wait: "In cabin", active: true },
+                    { token: "T-13", wait: "~8 min", active: false },
+                    { token: "T-14", wait: "~16 min", active: false },
                   ].map((t, i) => (
                     <motion.div
                       key={t.token}
-                      initial={{ opacity: 0, scale: 0.8 }}
+                      initial={{ opacity: 0, scale: 0.85 }}
                       whileInView={{ opacity: 1, scale: 1 }}
                       viewport={{ once: true }}
-                      transition={{ delay: 0.5 + i * 0.15, type: "spring", stiffness: 300 }}
-                      className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold border ${t.status === "active"
-                          ? "bg-blue-500 text-white border-blue-500 shadow-md shadow-blue-500/30"
-                          : "bg-slate-50 text-slate-400 border-slate-100"
+                      transition={{ delay: 0.4 + i * 0.12, type: "spring", stiffness: 300 }}
+                      className={`flex-1 min-w-0 rounded-lg border px-2 py-1.5 text-center ${t.active
+                        ? "bg-blue-500 border-blue-500 text-white shadow-md shadow-blue-500/30"
+                        : "bg-white border-slate-200 text-slate-500"
                         }`}
                     >
-                      {t.token}
+                      <div className="text-[11px] font-bold">{t.token}</div>
+                      <div className={`text-[9px] ${t.active ? "text-blue-100" : "text-slate-400"}`}>{t.wait}</div>
                     </motion.div>
                   ))}
-                  <motion.div
-                    animate={{ opacity: [0.3, 1, 0.3] }}
-                    transition={{ duration: 1.8, repeat: Infinity }}
-                    className="w-1.5 h-1.5 bg-blue-400 rounded-full ml-1"
-                  />
                 </div>
               </div>
-            </motion.div>
+            </FeatureCard>
 
-            {/* 2. Fast EMR — with typing cursor animation */}
-            <motion.div
-              variants={fadeUp}
-              whileHover={{ y: -6, transition: { type: "spring", stiffness: 400, damping: 25 } }}
-              className="group bg-white rounded-2xl p-7 border border-slate-100 hover:border-emerald-200/60 hover:shadow-xl hover:shadow-emerald-100/40 transition-all duration-500 cursor-default overflow-hidden relative"
+            {/* 2. Prescription writing — medicine autocomplete */}
+            <FeatureCard
+              tint={TINTS.emerald}
+              icon={Stethoscope}
+              title="Prescribe in seconds"
+              desc="Type a few letters — pick from 2.5 lakh+ Indian brands with salt and strength filled in."
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-emerald-50/0 to-emerald-50/0 group-hover:from-emerald-50/40 group-hover:to-transparent transition-all duration-700 rounded-2xl" />
-              <div className="relative z-10">
+              <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden">
+                <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100">
+                  <Search className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="text-[12px] font-mono text-slate-700">Dolo</span>
+                  <motion.span
+                    animate={{ opacity: [1, 0] }}
+                    transition={{ duration: 0.8, repeat: Infinity }}
+                    className="w-[2px] h-3.5 bg-emerald-500 rounded-full -ml-1"
+                  />
+                </div>
                 <motion.div
-                  whileHover={{ rotate: -8 }}
-                  transition={{ type: "spring", stiffness: 500 }}
-                  className="w-11 h-11 bg-emerald-50 rounded-xl flex items-center justify-center mb-5 group-hover:bg-emerald-100 transition-colors duration-300"
+                  initial={{ opacity: 0, y: -4 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: 0.7 }}
+                  className="px-3 py-2 bg-emerald-50/70"
                 >
-                  <Stethoscope className="w-5 h-5 text-emerald-600" />
+                  <div className="text-[12px] font-semibold text-slate-800 truncate">Dolo 650 Tablet</div>
+                  <div className="text-[10px] text-slate-500 truncate">Paracetamol (650mg)</div>
                 </motion.div>
-                <h3 className="text-[15px] font-semibold text-slate-900 mb-1.5">Fast EMR</h3>
-                <p className="text-slate-500 text-[13px] leading-relaxed mb-5">
-                  Write notes in seconds with AI auto-complete & customized templates.
-                </p>
-                {/* Typing mockup */}
-                <div className="bg-slate-50/80 rounded-lg px-3 py-2.5 border border-slate-100">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] text-slate-400 font-mono">Complaint:</span>
-                    <span className="text-[11px] text-slate-600 font-mono">Fever 3 days</span>
-                    <motion.span
-                      animate={{ opacity: [1, 0] }}
-                      transition={{ duration: 0.8, repeat: Infinity }}
-                      className="w-[2px] h-3 bg-emerald-500 rounded-full"
-                    />
+                <div className="flex flex-wrap gap-1.5 px-3 py-2">
+                  {["1-0-1", "5 days", "After food"].map((c) => (
+                    <span key={c} className="px-1.5 py-0.5 rounded-md bg-slate-100 text-[10px] font-medium text-slate-600">{c}</span>
+                  ))}
+                </div>
+              </div>
+            </FeatureCard>
+
+            {/* 3. Your letterhead */}
+            <FeatureCard
+              tint={TINTS.teal}
+              icon={FileText}
+              title="Prints on your letterhead"
+              desc="Upload a photo of your current prescription pad — every prescription prints right on it."
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex-1 min-w-0 rounded-xl border-2 border-dashed border-teal-200 bg-teal-50/40 p-3 text-center group-hover:border-teal-300 transition-colors">
+                  <Upload className="w-4 h-4 text-teal-500 mx-auto mb-1" />
+                  <div className="text-[10px] font-medium text-teal-700 truncate">your-pad.jpg</div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-slate-300 flex-shrink-0" />
+                <div className="flex-1 min-w-0 rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm">
+                  <div className="h-3 rounded-[3px] bg-gradient-to-r from-teal-500 to-cyan-400 mb-2" />
+                  <div className="text-[9px] font-bold text-slate-400 mb-1">℞</div>
+                  <div className="space-y-1">
+                    <div className="h-[3px] w-full bg-slate-200 rounded-full" />
+                    <div className="h-[3px] w-4/5 bg-slate-200 rounded-full" />
+                    <div className="h-[3px] w-3/5 bg-slate-200 rounded-full" />
                   </div>
                 </div>
               </div>
-            </motion.div>
+            </FeatureCard>
 
-            {/* 3. AI Voice — with waveform animation */}
+            {/* 4. Data ownership — dark accent card (2-col span) */}
             <motion.div
               variants={fadeUp}
-              whileHover={{ y: -6, transition: { type: "spring", stiffness: 400, damping: 25 } }}
-              className="group bg-white rounded-2xl p-7 border border-slate-100 hover:border-violet-200/60 hover:shadow-xl hover:shadow-violet-100/40 transition-all duration-500 cursor-default overflow-hidden relative"
+              whileHover={{ y: -4, transition: { type: "spring", stiffness: 350, damping: 25 } }}
+              className="md:col-span-2 bg-slate-900 rounded-2xl p-6 sm:p-8 overflow-hidden relative cursor-default border border-slate-800 hover:border-emerald-500/30 transition-colors duration-500"
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-violet-50/0 to-violet-50/0 group-hover:from-violet-50/40 group-hover:to-transparent transition-all duration-700 rounded-2xl" />
-              <div className="relative z-10">
-                <motion.div
-                  whileHover={{ rotate: -8 }}
-                  transition={{ type: "spring", stiffness: 500 }}
-                  className="w-11 h-11 bg-violet-50 rounded-xl flex items-center justify-center mb-5 group-hover:bg-violet-100 transition-colors duration-300"
-                >
-                  <Zap className="w-5 h-5 text-violet-600" />
-                </motion.div>
-                <h3 className="text-[15px] font-semibold text-slate-900 mb-1.5">AI Voice Notes</h3>
-                <p className="text-slate-500 text-[13px] leading-relaxed mb-5">
-                  Speak naturally — AI drafts clinical notes for your review.
-                </p>
-                {/* Voice waveform */}
-                <div className="flex items-end gap-[3px] h-6">
-                  {[3, 5, 8, 12, 6, 10, 14, 8, 5, 11, 7, 4, 9, 13, 6, 8, 10, 5, 7, 3].map((h, i) => (
-                    <motion.div
-                      key={i}
-                      animate={{ height: [`${h}px`, `${h * 0.3}px`, `${h}px`] }}
-                      transition={{ duration: 0.6 + Math.random() * 0.6, repeat: Infinity, delay: i * 0.05 }}
-                      className="w-[3px] bg-violet-300 group-hover:bg-violet-400 rounded-full transition-colors"
-                      style={{ height: `${h}px` }}
-                    />
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-
-            {/* 4. Security — dark accent card (2-col span) */}
-            <motion.div
-              variants={fadeUp}
-              whileHover={{ y: -5, transition: { type: "spring", stiffness: 350, damping: 25 } }}
-              className="md:col-span-2 bg-slate-900 rounded-2xl p-7 md:p-8 overflow-hidden relative cursor-default"
-            >
-              {/* Animated glow orbs */}
               <motion.div
                 animate={{ x: [0, 15, 0], y: [0, -10, 0], opacity: [0.08, 0.15, 0.08] }}
                 transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
                 className="absolute right-[-20px] top-[-20px] w-[200px] h-[200px] bg-emerald-400 blur-[80px] rounded-full pointer-events-none"
               />
-              <motion.div
-                animate={{ x: [0, -10, 0], y: [0, 12, 0], opacity: [0.05, 0.1, 0.05] }}
-                transition={{ duration: 8, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-                className="absolute left-[30%] bottom-[-30px] w-[150px] h-[150px] bg-blue-500 blur-[60px] rounded-full pointer-events-none"
-              />
 
               <div className="relative z-10 flex flex-col md:flex-row md:items-center gap-6">
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <div className="w-11 h-11 bg-emerald-500/15 rounded-xl border border-emerald-500/20 flex items-center justify-center mb-5">
                     <Shield className="w-5 h-5 text-emerald-400" />
                   </div>
-                  <h3 className="text-lg font-semibold text-white mb-2">Bank-Grade Security</h3>
+                  <h3 className="text-lg font-semibold text-white mb-2">Your clinic's data stays yours</h3>
                   <p className="text-slate-400 text-sm leading-relaxed mb-5 max-w-md">
-                    Role-based access, JWT auth, encrypted backups, and real-time drug interaction checks against 50,000+ molecules.
+                    Doctors and receptionists each see only what their role needs. Every clinic's patients,
+                    prescriptions and bills are kept separate, and everything travels over HTTPS.
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {["FDA Database", "WHO Guidelines", "HIPAA Ready"].map((tag, i) => (
+                    {["Role-based access", "Clinic-isolated data", "HTTPS everywhere", "Made for India · DPDP-minded"].map((tag, i) => (
                       <motion.span
                         key={tag}
                         initial={{ opacity: 0, x: -10 }}
                         whileInView={{ opacity: 1, x: 0 }}
                         viewport={{ once: true }}
-                        transition={{ delay: 0.6 + i * 0.12, type: "spring", stiffness: 300 }}
+                        transition={{ delay: 0.5 + i * 0.1, type: "spring", stiffness: 300 }}
                         className="px-2.5 py-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-xs font-medium flex items-center gap-1.5"
                       >
                         <CheckCircle2 className="w-3 h-3" /> {tag}
@@ -671,158 +684,112 @@ export function Landing() {
                   </div>
                 </div>
 
-                {/* Animated mini dashboard mockup */}
+                {/* Role access mockup */}
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
-                  transition={{ delay: 0.8, type: "spring", stiffness: 200 }}
-                  className="hidden md:block w-[200px] flex-shrink-0 bg-slate-800/60 border border-slate-700/40 rounded-xl p-4"
+                  transition={{ delay: 0.7, type: "spring", stiffness: 200 }}
+                  className="w-full md:w-[230px] flex-shrink-0 bg-slate-800/60 border border-slate-700/40 rounded-xl p-4 space-y-2.5"
                 >
-                  <div className="flex items-center gap-2 mb-3">
-                    <motion.div
-                      animate={{ scale: [1, 1.2, 1] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                      className="w-2 h-2 bg-emerald-400 rounded-full"
-                    />
-                    <div className="text-[10px] text-slate-500 font-medium">System Active</div>
-                  </div>
-                  <div className="space-y-2 mb-3">
-                    <div className="w-full h-1 bg-slate-700/60 rounded-full overflow-hidden">
-                      <motion.div
-                        initial={{ width: "0%" }}
-                        whileInView={{ width: "85%" }}
-                        viewport={{ once: true }}
-                        transition={{ delay: 1.2, duration: 1, ease: "easeOut" }}
-                        className="h-full bg-emerald-500/60 rounded-full"
-                      />
+                  {[
+                    { role: "Doctor", sees: "Consults · Prescriptions", icon: Stethoscope },
+                    { role: "Reception", sees: "Queue · Appointments · Billing", icon: UserCheck },
+                  ].map((r) => (
+                    <div key={r.role} className="flex items-center gap-2.5 rounded-lg bg-slate-900/60 border border-slate-700/40 px-2.5 py-2">
+                      <r.icon className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <div className="text-[11px] font-semibold text-white">{r.role}</div>
+                        <div className="text-[10px] text-slate-400 truncate">{r.sees}</div>
+                      </div>
                     </div>
-                    <div className="w-full h-1 bg-slate-700/60 rounded-full overflow-hidden">
-                      <motion.div
-                        initial={{ width: "0%" }}
-                        whileInView={{ width: "60%" }}
-                        viewport={{ once: true }}
-                        transition={{ delay: 1.4, duration: 1, ease: "easeOut" }}
-                        className="h-full bg-blue-500/50 rounded-full"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <div className="flex gap-1">
-                      <div className="w-3 h-3 bg-emerald-400 rounded-full" />
-                      <div className="w-3 h-3 bg-blue-400 rounded-full" />
-                    </div>
-                    <div className="px-2 py-0.5 bg-blue-600/80 rounded text-[9px] text-white font-medium">Secured</div>
+                  ))}
+                  <div className="flex items-center gap-1.5 pt-1 text-[10px] text-slate-500">
+                    <Lock className="w-3 h-3" /> Other clinics: no access
                   </div>
                 </motion.div>
               </div>
             </motion.div>
 
-            {/* 5. Billing — with animated price tag */}
-            <motion.div
-              variants={fadeUp}
-              whileHover={{ y: -6, transition: { type: "spring", stiffness: 400, damping: 25 } }}
-              className="group bg-white rounded-2xl p-7 border border-slate-100 hover:border-amber-200/60 hover:shadow-xl hover:shadow-amber-100/40 transition-all duration-500 cursor-default overflow-hidden relative"
+            {/* 5. Billing & UPI */}
+            <FeatureCard
+              tint={TINTS.amber}
+              icon={Receipt}
+              title="Billing & UPI"
+              desc="Raise an invoice after the consult and collect by UPI, card or cash."
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-amber-50/0 to-amber-50/0 group-hover:from-amber-50/40 group-hover:to-transparent transition-all duration-700 rounded-2xl" />
-              <div className="relative z-10">
-                <motion.div
-                  whileHover={{ rotate: -8 }}
-                  transition={{ type: "spring", stiffness: 500 }}
-                  className="w-11 h-11 bg-amber-50 rounded-xl flex items-center justify-center mb-5 group-hover:bg-amber-100 transition-colors duration-300"
-                >
-                  <Receipt className="w-5 h-5 text-amber-600" />
-                </motion.div>
-                <h3 className="text-[15px] font-semibold text-slate-900 mb-1.5">Billing & UPI</h3>
-                <p className="text-slate-500 text-[13px] leading-relaxed mb-5">
-                  Generate invoices and collect UPI payments instantly.
-                </p>
-                {/* Mini invoice mockup */}
-                <div className="flex items-center justify-between bg-amber-50/60 rounded-lg px-3 py-2 border border-amber-100/60">
-                  <span className="text-[10px] font-semibold text-amber-700/70">INV-00042</span>
-                  <motion.span
-                    initial={{ opacity: 0 }}
-                    whileInView={{ opacity: 1 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: 0.8 }}
-                    className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100"
-                  >
-                    ₹ Paid
-                  </motion.span>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* 6. Prescription Designer */}
-            <motion.div
-              variants={fadeUp}
-              whileHover={{ y: -6, transition: { type: "spring", stiffness: 400, damping: 25 } }}
-              className="group bg-white rounded-2xl p-7 border border-slate-100 hover:border-teal-200/60 hover:shadow-xl hover:shadow-teal-100/40 transition-all duration-500 cursor-default overflow-hidden relative"
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-teal-50/0 to-teal-50/0 group-hover:from-teal-50/40 group-hover:to-transparent transition-all duration-700 rounded-2xl" />
-              <div className="relative z-10">
-                <motion.div
-                  whileHover={{ rotate: -8 }}
-                  transition={{ type: "spring", stiffness: 500 }}
-                  className="w-11 h-11 bg-teal-50 rounded-xl flex items-center justify-center mb-5 group-hover:bg-teal-100 transition-colors duration-300"
-                >
-                  <Microscope className="w-5 h-5 text-teal-600" />
-                </motion.div>
-                <h3 className="text-[15px] font-semibold text-slate-900 mb-1.5">Prescription Designer</h3>
-                <p className="text-slate-500 text-[13px] leading-relaxed mb-5">
-                  Beautiful PDFs with your clinic logo, digital signature, and QR code.
-                </p>
-                {/* Mini Rx card */}
-                <div className="bg-gradient-to-br from-teal-50/80 to-cyan-50/60 rounded-lg px-3 py-2.5 border border-teal-100/60">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <div className="w-4 h-4 bg-teal-500 rounded-[4px]" />
-                    <div className="w-10 h-1 bg-teal-300 rounded-full" />
+              <div className="rounded-xl border border-amber-100/80 bg-amber-50/50 p-3 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-[10px] font-semibold text-amber-700/70">INV-00042</div>
+                    <div className="text-[11px] text-slate-600 truncate">Consultation</div>
                   </div>
-                  <div className="space-y-1">
-                    <div className="w-full h-[3px] bg-teal-200/60 rounded-full" />
-                    <div className="w-3/4 h-[3px] bg-teal-200/40 rounded-full" />
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* 7. Smart Templates — 2 col with interactive tags */}
-            <motion.div
-              variants={fadeUp}
-              whileHover={{ y: -5, transition: { type: "spring", stiffness: 350, damping: 25 } }}
-              className="md:col-span-2 group bg-gradient-to-br from-orange-50/30 via-white to-white rounded-2xl p-7 md:p-8 border border-slate-100 hover:border-orange-200/60 hover:shadow-xl hover:shadow-orange-100/30 transition-all duration-500 cursor-default"
-            >
-              <div className="flex flex-col md:flex-row md:items-center gap-6">
-                <div className="flex-1">
-                  <motion.div
-                    whileHover={{ rotate: -8 }}
-                    transition={{ type: "spring", stiffness: 500 }}
-                    className="w-11 h-11 bg-orange-50 rounded-xl flex items-center justify-center mb-5 group-hover:bg-orange-100 transition-colors duration-300"
-                  >
-                    <Star className="w-5 h-5 text-orange-500" />
-                  </motion.div>
-                  <h3 className="text-[15px] font-semibold text-slate-900 mb-1.5">Smart Templates</h3>
-                  <p className="text-slate-500 text-[13px] leading-relaxed">
-                    1-click protocols for Fever, Diabetes, Pain and more. Create your own in seconds.
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2 md:w-auto flex-shrink-0">
-                  {["Fever", "Cold", "Diabetes", "Pain", "Infection", "Allergy"].map((tag, i) => (
+                  <div className="text-right">
+                    <div className="text-[13px] font-bold text-slate-800 flex items-center justify-end"><IndianRupee className="w-3 h-3" />500</div>
                     <motion.span
-                      key={tag}
-                      initial={{ opacity: 0, y: 8 }}
-                      whileInView={{ opacity: 1, y: 0 }}
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      whileInView={{ opacity: 1, scale: 1 }}
                       viewport={{ once: true }}
-                      transition={{ delay: 0.4 + i * 0.08, type: "spring", stiffness: 300 }}
-                      whileHover={{ scale: 1.08, borderColor: "rgb(251 146 60)" }}
-                      className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:text-orange-600 hover:border-orange-200 hover:bg-orange-50/40 transition-all duration-200 cursor-default shadow-sm"
+                      transition={{ delay: 0.8, type: "spring", stiffness: 300 }}
+                      className="inline-block text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100"
                     >
-                      {tag}
+                      Paid · UPI
                     </motion.span>
+                  </div>
+                </div>
+                <div className="flex gap-1.5">
+                  {["UPI", "Card", "Cash"].map((m, i) => (
+                    <span key={m} className={`flex-1 text-center rounded-md py-1 text-[10px] font-medium border ${i === 0 ? "bg-white border-amber-200 text-amber-700" : "bg-white/60 border-amber-100 text-slate-500"}`}>{m}</span>
                   ))}
                 </div>
               </div>
-            </motion.div>
+            </FeatureCard>
+
+            {/* 6. Smart Templates — 2 col */}
+            <FeatureCard
+              tint={TINTS.orange}
+              icon={Star}
+              title="Smart Templates"
+              desc="Save your go-to prescriptions for common cases and reuse them in one click."
+              className="md:col-span-2"
+            >
+              <div className="flex flex-wrap gap-2">
+                {["Fever", "Cold & Cough", "Diabetes", "Hypertension", "Pain", "Infection", "Allergy"].map((tag, i) => (
+                  <motion.span
+                    key={tag}
+                    initial={{ opacity: 0, y: 8 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: 0.3 + i * 0.06, type: "spring", stiffness: 300 }}
+                    className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-600 hover:text-orange-600 hover:border-orange-200 hover:bg-orange-50/40 transition-colors duration-200 cursor-default shadow-sm"
+                  >
+                    {tag}
+                  </motion.span>
+                ))}
+                <span className="px-3 py-1.5 rounded-lg border border-dashed border-orange-200 text-xs font-medium text-orange-500">+ Your own</span>
+              </div>
+            </FeatureCard>
+
+            {/* 7. AI Voice Notes — coming soon */}
+            <FeatureCard
+              tint={TINTS.violet}
+              icon={Mic}
+              title="AI Voice Notes"
+              desc="Speak naturally during the consult — AI will draft notes for you to review."
+              badge="Coming soon"
+            >
+              <div className="flex items-end gap-[3px] h-6 opacity-70">
+                {[3, 5, 8, 12, 6, 10, 14, 8, 5, 11, 7, 4, 9, 13, 6, 8, 10, 5, 7, 3].map((h, i) => (
+                  <motion.div
+                    key={i}
+                    animate={{ height: [`${h}px`, `${h * 0.3}px`, `${h}px`] }}
+                    transition={{ duration: 0.6 + (i % 5) * 0.12, repeat: Infinity, delay: i * 0.05 }}
+                    className="w-[3px] bg-violet-300 group-hover:bg-violet-400 rounded-full transition-colors"
+                    style={{ height: `${h}px` }}
+                  />
+                ))}
+              </div>
+            </FeatureCard>
 
           </div>
         </motion.div>
@@ -1015,17 +982,17 @@ export function Landing() {
             >
               <div>
                 <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 mb-4">
-                  Why top clinics choose us
+                  Why clinics choose Mednivo
                 </h2>
                 <p className="text-lg text-slate-500">
-                  Built on modern infrastructure, Mednivo is designed to be the last clinic management system you'll ever need.
+                  Built for Indian OPDs — simple enough for your front desk, fast enough for a busy doctor.
                 </p>
               </div>
 
               <div className="space-y-6">
                 {[
-                  { icon: Shield, title: "100% Data Privacy", desc: "Your patient data is encrypted at rest and in transit. You own your data, always." },
-                  { icon: Zap, title: "Zero Downtime Deployments", desc: "Our cloud infrastructure guarantees 99.9% uptime, so your clinic never stops." },
+                  { icon: Shield, title: "Your data, your clinic", desc: "Every clinic's records are kept separate and sent over HTTPS. You own your data, always." },
+                  { icon: MonitorSmartphone, title: "Nothing to install", desc: "Runs in the browser on your desktop, laptop or tablet — log in and start your OPD." },
                   { icon: Headphones, title: "Dedicated Onboarding", desc: "Our team helps you migrate your existing data and trains your front desk for free." }
                 ].map((item, i) => (
                   <div key={i} className="flex items-start gap-4">

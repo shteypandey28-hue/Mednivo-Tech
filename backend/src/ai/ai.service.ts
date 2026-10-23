@@ -1,5 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { requireClinic } from '../common/tenant';
+
+const ALLOWED_IMAGE_TYPES: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -8,45 +12,24 @@ export class AiService {
   constructor(private readonly prisma: PrismaService) {}
 
   async processVoiceTranscript(transcript: string) {
-    // In production, this would call OpenAI/Claude API to extract structured data
-    // For now, we mock the extraction logic based on keywords
-    
-    const lower = transcript.toLowerCase();
-    const result: any = {
-      vitals: {},
-      complaints: '',
-      examination: '',
-      diagnosis: '',
-    };
-
-    if (lower.includes('complaint') || lower.includes('suffering from')) {
-      result.complaints = 'Fever and cough for the last 3 days. ' + transcript;
-    } else {
-      result.complaints = transcript;
-    }
-
-    if (lower.includes('blood pressure')) {
-      result.vitals.systolic = '120';
-      result.vitals.diastolic = '80';
-    }
-    if (lower.includes('fever') || lower.includes('temperature')) {
-      result.vitals.temperature = '101.2';
-    }
-
-    if (lower.includes('diagnosis')) {
-      result.diagnosis = 'Viral Pharyngitis';
-    }
-
+    // No speech model is connected yet. Never invent vitals or diagnoses here —
+    // return the doctor's own words so they can review and edit them.
     return {
       success: true,
-      extractedData: result,
-      rawTranscript: transcript
+      isAiAssisted: false,
+      extractedData: {
+        vitals: {},
+        complaints: (transcript || '').trim(),
+        examination: '',
+        diagnosis: '',
+      },
+      rawTranscript: transcript,
     };
   }
 
-  async summarizePatientHistory(patientId: string) {
+  async summarizePatientHistory(patientId: string, clinicId: string) {
     const consultations = await this.prisma.consultation.findMany({
-      where: { patientId },
+      where: { patientId, clinicId: requireClinic(clinicId) },
       orderBy: { createdAt: 'desc' },
       take: 5,
       include: { diagnoses: true }
@@ -56,24 +39,25 @@ export class AiService {
       return { summary: "No previous history found for this patient." };
     }
 
-    // In production, send the consultations array to an LLM
-    // Mock summary:
+    // Factual summary built only from recorded data (no clinical judgements).
     const recent = consultations[0];
+    const recentDiagnoses = recent.diagnoses?.map(d => d.name).join(', ');
     return {
-      summary: `Patient has a history of ${consultations.length} visits. Last visit was on ${recent.createdAt.toLocaleDateString()}. Previously diagnosed with ${recent.diagnoses?.map(d => d.name).join(', ') || 'minor ailments'}. Shows adherence to treatments. Needs follow-up on previous complaints.`,
+      summary: `${consultations.length} recorded visit(s). Last visit on ${recent.createdAt.toLocaleDateString('en-IN')}${recentDiagnoses ? `, diagnosed with ${recentDiagnoses}` : ''}.`,
       keyPoints: [
         `Total past visits: ${consultations.length}`,
-        `Recent diagnosis: ${recent.diagnoses?.map(d => d.name).join(', ') || 'None recorded'}`,
-        `Risk factors: None identified in recent history`
+        `Recent diagnosis: ${recentDiagnoses || 'None recorded'}`,
       ]
     };
   }
 
   async analyzePrescriptionPad(file: Express.Multer.File) {
-    if (!file) throw new Error('No image provided');
-    
-    // Save file locally for preview/pdf rendering
-    const filename = `template-${Date.now()}-${file.originalname.replace(/\s+/g, '_')}`;
+    if (!file) throw new BadRequestException('No image provided');
+    if (!ALLOWED_IMAGE_TYPES[file.mimetype]) throw new BadRequestException('Upload a JPG, PNG or WebP image');
+
+    // Save file locally for preview/pdf rendering. Never use the client's filename
+    // (it could contain "../" and escape the uploads folder).
+    const filename = `template-${Date.now()}-${randomBytes(6).toString('hex')}.${ALLOWED_IMAGE_TYPES[file.mimetype]}`;
     const publicPath = path.join(process.cwd(), 'public', 'uploads');
     
     if (!fs.existsSync(publicPath)) {

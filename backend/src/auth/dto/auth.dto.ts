@@ -1,5 +1,8 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength, IsOptional, IsEnum, IsBoolean } from 'class-validator';
-import { Role } from '@prisma/client';
+import { IsEmail, IsNotEmpty, IsString, MinLength, IsOptional, IsIn, IsBoolean, IsNumber } from 'class-validator';
+
+// Self-service sign-up may only pick these; ADMIN is assigned manually.
+export const SELF_SERVICE_ROLES = ['DOCTOR', 'RECEPTIONIST'] as const;
+export type SelfServiceRole = (typeof SELF_SERVICE_ROLES)[number];
 
 export class RegisterDto {
   @IsString()
@@ -18,8 +21,8 @@ export class RegisterDto {
   phone?: string;
 
   @IsOptional()
-  @IsEnum(Role)
-  role?: Role;
+  @IsIn(SELF_SERVICE_ROLES)
+  role?: SelfServiceRole;
 
   // Doctor-specific
   @IsOptional()
@@ -65,8 +68,8 @@ export class UpdateProfileDto {
   name?: string;
 
   @IsOptional()
-  @IsEnum(Role)
-  role?: Role;
+  @IsIn(SELF_SERVICE_ROLES)
+  role?: SelfServiceRole;
 
   @IsOptional()
   @IsBoolean()
@@ -97,6 +100,7 @@ export class UpdateProfileDto {
   signature?: string;
 
   @IsOptional()
+  @IsNumber()
   consultationFee?: number;
 
   @IsOptional()

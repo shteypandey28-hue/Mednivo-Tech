@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { PUBLIC_USER, assertDoctorInClinic, assertPatientInClinic, requireClinic } from '../common/tenant';
 
 @Injectable()
 export class BillingService {
@@ -7,47 +8,60 @@ export class BillingService {
 
   // ─── Invoices ──────────────────────────────────────────────────
   async createInvoice(data: any) {
-    const clinic = await this.prisma.clinic.findUnique({ where: { id: data.clinicId } });
-    if (!clinic) throw new NotFoundException('Clinic not found');
+    const clinicId = requireClinic(data.clinicId);
+    await assertPatientInClinic(this.prisma, data.patientId, clinicId);
+    if (data.doctorId) await assertDoctorInClinic(this.prisma, data.doctorId, clinicId);
+    if (data.appointmentId) {
+      const appt = await this.prisma.appointment.findFirst({ where: { id: data.appointmentId, clinicId }, select: { id: true } });
+      if (!appt) throw new NotFoundException('Appointment not found');
+    }
 
-    // Auto-generate invoice number
-    const counter = clinic.invoiceCounter + 1;
-    const invoiceNumber = `${clinic.invoicePrefix}-${String(counter).padStart(6, '0')}`;
+    // Increment atomically so concurrent invoices never share a number.
+    const clinic = await this.prisma.clinic.update({
+      where: { id: clinicId },
+      data: { invoiceCounter: { increment: 1 } },
+      select: { invoicePrefix: true, invoiceCounter: true },
+    });
+    const invoiceNumber = `${clinic.invoicePrefix}-${String(clinic.invoiceCounter).padStart(6, '0')}`;
 
-    await this.prisma.clinic.update({
-      where: { id: data.clinicId },
-      data: { invoiceCounter: counter },
+    // Calculate totals server-side; never trust totals sent by the client.
+    let subtotal = 0;
+    const invoiceItems = (Array.isArray(data.items) ? data.items : []).map((item: any) => {
+      const quantity = Math.max(1, Math.floor(Number(item.quantity) || 1));
+      const unitPrice = Math.max(0, Number(item.unitPrice) || 0);
+      const total = quantity * unitPrice;
+      subtotal += total;
+      return { description: String(item.description || 'Item'), category: item.category, quantity, unitPrice, total };
     });
 
-    const { items, ...invoiceData } = data;
-
-    // Calculate totals
-    let subtotal = 0;
-    const invoiceItems = items?.map((item: any) => {
-      const total = item.quantity * item.unitPrice;
-      subtotal += total;
-      return { ...item, total };
-    }) || [];
-
-    const discountAmount = invoiceData.discountAmount || 0;
-    const taxAmount = invoiceData.taxAmount || 0;
-    const totalAmount = subtotal - discountAmount + taxAmount;
+    const discountAmount = Math.max(0, Number(data.discountAmount) || 0);
+    const taxAmount = Math.max(0, Number(data.taxAmount) || 0);
+    const totalAmount = Math.max(0, subtotal - discountAmount + taxAmount);
 
     return this.prisma.invoice.create({
       data: {
-        ...invoiceData,
+        clinicId,
+        patientId: data.patientId,
+        doctorId: data.doctorId,
+        appointmentId: data.appointmentId,
+        notes: data.notes,
+        dueDate: data.dueDate ? new Date(data.dueDate) : undefined,
+        discountPercent: data.discountPercent,
+        taxPercent: data.taxPercent,
         invoiceNumber,
         subtotal,
+        discountAmount,
+        taxAmount,
         totalAmount,
         balanceDue: totalAmount,
         items: { create: invoiceItems },
       },
-      include: { items: true, patient: true, doctor: true },
+      include: { items: true, patient: true, doctor: PUBLIC_USER },
     });
   }
 
   async getInvoices(clinicId: string, filters: { status?: string; patientId?: string }) {
-    const where: any = { clinicId };
+    const where: any = { clinicId: requireClinic(clinicId) };
     if (filters.status) where.status = filters.status;
     if (filters.patientId) where.patientId = filters.patientId;
 
@@ -63,10 +77,10 @@ export class BillingService {
     });
   }
 
-  async getInvoice(id: string) {
-    const invoice = await this.prisma.invoice.findUnique({
-      where: { id },
-      include: { items: true, patient: true, doctor: true, payments: true, receipt: true },
+  async getInvoice(id: string, clinicId: string) {
+    const invoice = await this.prisma.invoice.findFirst({
+      where: { id, clinicId: requireClinic(clinicId) },
+      include: { items: true, patient: true, doctor: PUBLIC_USER, payments: true, receipt: true },
     });
     if (!invoice) throw new NotFoundException('Invoice not found');
     return invoice;
@@ -74,58 +88,62 @@ export class BillingService {
 
   // ─── Payments ──────────────────────────────────────────────────
   async recordPayment(data: { invoiceId: string; clinicId: string; amount: number; method: any; transactionId?: string; notes?: string }) {
-    const invoice = await this.prisma.invoice.findUnique({ where: { id: data.invoiceId } });
+    const clinicId = requireClinic(data.clinicId);
+    const amount = Number(data.amount);
+    if (!(amount > 0)) throw new BadRequestException('Amount must be greater than zero');
+
+    const invoice = await this.prisma.invoice.findFirst({ where: { id: data.invoiceId, clinicId } });
     if (!invoice) throw new NotFoundException('Invoice not found');
 
-    const payment = await this.prisma.payment.create({
-      data: {
-        invoiceId: data.invoiceId,
-        clinicId: data.clinicId,
-        amount: data.amount,
-        method: data.method,
-        status: 'SUCCESS',
-        transactionId: data.transactionId,
-        notes: data.notes,
-        paidAt: new Date(),
-      },
-    });
-
-    // Update invoice
-    const newAmountPaid = invoice.amountPaid + data.amount;
-    const newBalance = invoice.totalAmount - newAmountPaid;
-    const newStatus = newBalance <= 0 ? 'PAID' : 'PARTIALLY_PAID';
-
-    await this.prisma.invoice.update({
-      where: { id: data.invoiceId },
-      data: {
-        amountPaid: newAmountPaid,
-        balanceDue: Math.max(0, newBalance),
-        status: newStatus,
-      },
-    });
-
-    // Auto-generate receipt
-    const clinic = await this.prisma.clinic.findUnique({ where: { id: data.clinicId } });
-    if (clinic) {
-      const receiptCounter = (await this.prisma.receipt.count({ where: { clinicId: data.clinicId } })) + 1;
-      const receiptNumber = `${clinic.receiptPrefix}-${String(receiptCounter).padStart(6, '0')}`;
-
-      await this.prisma.receipt.create({
+    return this.prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.create({
         data: {
-          receiptNumber,
-          clinicId: data.clinicId,
-          invoiceId: data.invoiceId,
-          paymentId: payment.id,
-          amount: data.amount,
+          invoiceId: invoice.id,
+          clinicId,
+          amount,
+          method: data.method,
+          status: 'SUCCESS',
+          transactionId: data.transactionId,
+          notes: data.notes,
+          paidAt: new Date(),
         },
       });
-    }
 
-    return payment;
+      const updated = await tx.invoice.update({
+        where: { id: invoice.id },
+        data: { amountPaid: { increment: amount } },
+      });
+      const newBalance = updated.totalAmount - updated.amountPaid;
+      await tx.invoice.update({
+        where: { id: invoice.id },
+        data: { balanceDue: Math.max(0, newBalance), status: newBalance <= 0 ? 'PAID' : 'PARTIALLY_PAID' },
+      });
+
+      // Invoice ↔ receipt is 1:1 in the schema, so only the first payment gets a receipt.
+      const existingReceipt = await tx.receipt.findUnique({ where: { invoiceId: invoice.id }, select: { id: true } });
+      if (!existingReceipt) {
+        const clinic = await tx.clinic.update({
+          where: { id: clinicId },
+          data: { receiptCounter: { increment: 1 } },
+          select: { receiptPrefix: true, receiptCounter: true },
+        });
+        await tx.receipt.create({
+          data: {
+            receiptNumber: `${clinic.receiptPrefix}-${String(clinic.receiptCounter).padStart(6, '0')}`,
+            clinicId,
+            invoiceId: invoice.id,
+            paymentId: payment.id,
+            amount,
+          },
+        });
+      }
+
+      return payment;
+    });
   }
 
   async getPayments(clinicId: string, filters: { date?: string }) {
-    const where: any = { clinicId };
+    const where: any = { clinicId: requireClinic(clinicId) };
     if (filters.date) {
       const date = new Date(filters.date);
       const nextDay = new Date(date);
@@ -149,7 +167,7 @@ export class BillingService {
   // ─── Receipts ──────────────────────────────────────────────────
   async getReceipts(clinicId: string) {
     return this.prisma.receipt.findMany({
-      where: { clinicId },
+      where: { clinicId: requireClinic(clinicId) },
       include: {
         invoice: {
           include: { patient: { select: { id: true, name: true, patientUHID: true } } },
@@ -160,11 +178,11 @@ export class BillingService {
     });
   }
 
-  async getReceipt(id: string) {
-    const receipt = await this.prisma.receipt.findUnique({
-      where: { id },
+  async getReceipt(id: string, clinicId: string) {
+    const receipt = await this.prisma.receipt.findFirst({
+      where: { id, clinicId: requireClinic(clinicId) },
       include: {
-        invoice: { include: { patient: true, doctor: true, items: true } },
+        invoice: { include: { patient: true, doctor: PUBLIC_USER, items: true } },
         payment: true,
         clinic: true,
       },
